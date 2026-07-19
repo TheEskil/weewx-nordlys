@@ -26,6 +26,22 @@ npm run build   # builds the front-end into skins/Nordlys/dist/
 npm run check   # svelte-check / TypeScript
 ```
 
+To exercise the full weewx pipeline locally (report generation with a
+synthetic 7-day archive database):
+
+```sh
+python3 -m venv .venv && .venv/bin/pip install weewx
+.venv/bin/python dev/setup.py      # one-time station area in dev/weewx/
+npm run build                       # SLE serves the built assets
+.venv/bin/weectl report run --config dev/weewx/weewx.conf
+python3 -m http.server 8123 --directory dev/weewx/public_html/nordlys
+
+.venv/bin/python -m unittest discover tests/python   # SLE unit tests
+```
+
+The Python <-> front-end payload shape is documented in
+[docs/data-contract.md](docs/data-contract.md).
+
 ## Installation
 
 Not yet released. Once packaged: `weectl extension install <zip>`.

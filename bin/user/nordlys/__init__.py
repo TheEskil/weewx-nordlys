@@ -4,26 +4,33 @@ Serializes the resolved skin configuration plus the station data into the
 JSON payload the Nordlys front-end renders. The payload shape is the
 Python <-> JS data contract, version 1 (see docs/data-contract.md and
 src/lib/types.ts).
-
-Milestone 2 will fill in `current` (and later `series`, `stats`,
-`climatology`); this version ships the config + meta serialization so the
-front-end contract is exercised end-to-end.
 """
 
 import json
+import re
 import time
 
+import weewx.units
+import weewx.xtypes
+from weeutil.weeutil import archiveDaySpan
 from weewx.cheetahgenerator import SearchList
 
 CONTRACT_VERSION = 1
 
-# Keys on a page section that are settings, not layout rows.
-_PAGE_SETTINGS = {'title'}
 # Keys on a row section that are settings, not tiles.
 _ROW_SETTINGS = {'title', 'columns'}
 # Tile keys that stay at the top level of the tile object; everything
 # else is passed through as tile options.
 _TILE_SETTINGS = {'type', 'obs', 'title'}
+
+# Observations whose "current" value is the day's running total.
+_DAY_SUM_OBS = {'rain'}
+# Observations where a daily min (or any extreme) adds no information.
+_NO_MIN_OBS = {'windSpeed', 'windGust', 'rainRate', 'UV', 'radiation'}
+_NO_MINMAX_OBS = {'rain', 'windDir'}
+# Observations that get a trend (change over the last three hours).
+_TREND_OBS = {'outTemp', 'barometer'}
+_TREND_SECONDS = 10800
 
 
 def _coerce(value):
@@ -95,6 +102,18 @@ def _theme_config(section):
     return theme
 
 
+def _collect_obs(pages):
+    """All observation keys referenced by tiles, in config order."""
+    keys = []
+    for page in pages:
+        for row in page['layout']:
+            for tile in row['tiles']:
+                obs = tile.get('obs')
+                if obs and obs not in keys:
+                    keys.append(obs)
+    return keys
+
+
 class NordlysSearchList(SearchList):
     """Provides $nordlys_json to the Nordlys templates."""
 
@@ -122,14 +141,113 @@ class NordlysSearchList(SearchList):
                     'location': stn_info.location,
                     'latitude': stn_info.latitude_f,
                     'longitude': stn_info.longitude_f,
-                    'altitude': str(stn_info.altitude_vt[0]),
+                    'altitude': self._format_altitude(stn_info.altitude_vt),
                 },
             },
             'config': config,
-            # Filled in by milestone 2 (current), then series/stats/climatology.
-            'current': {},
+            'current': self._current_data(config['pages'], db_lookup),
         }
 
         # Escape "</" so the payload is safe inside a <script> element.
         nordlys_json = json.dumps(payload, ensure_ascii=False).replace('</', '<\\/')
         return [{'nordlys_json': nordlys_json}]
+
+    # ------------------------------------------------------------------
+    # current data
+
+    def _current_data(self, pages, db_lookup):
+        db_manager = db_lookup()
+        last_ts = db_manager.lastGoodStamp()
+        if not last_ts:
+            return {}
+
+        record = db_manager.getRecord(last_ts)
+        trend_record = db_manager.getRecord(
+            last_ts - _TREND_SECONDS, max_delta=1800
+        )
+        day_span = archiveDaySpan(last_ts)
+        labels = self.generator.skin_dict.get('Labels', {}).get('Generic', {})
+
+        current = {}
+        for obs in _collect_obs(pages):
+            try:
+                entry = self._observation(
+                    obs, record, trend_record, day_span, db_manager, labels
+                )
+            except (KeyError, weewx.UnknownType, weewx.CannotCalculate):
+                continue
+            if entry is not None:
+                current[obs] = entry
+        return current
+
+    def _observation(self, obs, record, trend_record, day_span, db_manager, labels):
+        converter = self.generator.converter
+        formatter = self.generator.formatter
+
+        if obs in _DAY_SUM_OBS:
+            value_vt = weewx.xtypes.get_aggregate(obs, day_span, 'sum', db_manager)
+        else:
+            if obs not in record:
+                return None
+            value_vt = weewx.units.as_value_tuple(record, obs)
+        value = converter.convert(value_vt)
+
+        unit_label = (formatter.get_label_string(value[1], plural=False) or '').strip()
+        decimals = self._decimals(formatter, value[1])
+
+        entry = {
+            'value': self._round(value[0], decimals),
+            'unit': unit_label,
+            'label': labels.get(obs, obs),
+            'decimals': decimals,
+        }
+
+        if obs not in _NO_MINMAX_OBS:
+            if obs not in _NO_MIN_OBS:
+                extreme = self._extreme(obs, 'min', day_span, db_manager, decimals)
+                if extreme:
+                    entry['min'] = extreme
+            extreme = self._extreme(obs, 'max', day_span, db_manager, decimals)
+            if extreme:
+                entry['max'] = extreme
+
+        if obs in _TREND_OBS and trend_record and obs in trend_record:
+            then = converter.convert(weewx.units.as_value_tuple(trend_record, obs))
+            if value[0] is not None and then[0] is not None:
+                entry['trend'] = self._round(value[0] - then[0], decimals)
+
+        return entry
+
+    def _extreme(self, obs, kind, day_span, db_manager, decimals):
+        try:
+            value_vt = weewx.xtypes.get_aggregate(obs, day_span, kind, db_manager)
+            time_vt = weewx.xtypes.get_aggregate(
+                obs, day_span, kind + 'time', db_manager
+            )
+        except (weewx.UnknownType, weewx.UnknownAggregation, weewx.CannotCalculate):
+            return None
+        value = self.generator.converter.convert(value_vt)
+        if value[0] is None:
+            return None
+        extreme = {'value': self._round(value[0], decimals)}
+        if time_vt[0] is not None:
+            extreme['time'] = time.strftime('%H:%M', time.localtime(time_vt[0]))
+        return extreme
+
+    def _format_altitude(self, altitude_vt):
+        converted = self.generator.converter.convert(altitude_vt)
+        label = self.generator.formatter.get_label_string(
+            converted[1], plural=False
+        ) or ''
+        return f'{converted[0]:g}{label}'
+
+    @staticmethod
+    def _decimals(formatter, unit):
+        format_string = formatter.get_format_string(unit) or ''
+        # Formats look like "%.1f" or "%03.0f"; extract the precision.
+        match = re.search(r'%[\d#+0 -]*\.(\d+)f', format_string)
+        return int(match.group(1)) if match else 1
+
+    @staticmethod
+    def _round(value, decimals):
+        return round(value, decimals) if value is not None else None

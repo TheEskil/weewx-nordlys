@@ -1,4 +1,7 @@
 node_modules/
 skins/Nordlys/dist/
+.venv/
+dev/weewx/
+__pycache__/
 *.log
 .DS_Store

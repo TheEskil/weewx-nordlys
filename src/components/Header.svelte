@@ -17,7 +17,9 @@
 <header>
   <div class="station">
     <h1>{station.name}</h1>
-    <p class="location">{station.location}</p>
+    {#if station.location && station.location !== station.name}
+      <p class="location">{station.location}</p>
+    {/if}
   </div>
 
   {#if pages.length > 1}
