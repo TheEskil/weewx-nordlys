@@ -7,6 +7,7 @@ src/lib/types.ts).
 """
 
 import json
+import logging
 import re
 import time
 from bisect import bisect_right
@@ -24,7 +25,20 @@ from weeutil.weeutil import (
 )
 from weewx.cheetahgenerator import SearchList
 
+log = logging.getLogger(__name__)
+
 CONTRACT_VERSION = 1
+
+_TILE_TYPES = {
+    'gauge', 'stat', 'chart', 'table', 'text',
+    'climatology', 'celestial', 'forecast',
+}
+_CHART_KINDS = {'line', 'area', 'bar', 'scatter', 'windrose', 'calendar'}
+_TABLE_KINDS = {'stats', 'records'}
+_THEME_MODES = {'auto', 'dark', 'light'}
+# Tile types that render a single observation from `current`.
+_OBS_TILE_TYPES = {'gauge', 'stat'}
+_CLIMO_AGGREGATES = {'min', 'max', 'avg', 'sum'}
 
 # Keys on a row section that are settings, not tiles.
 _ROW_SETTINGS = {'title', 'columns'}
@@ -259,6 +273,123 @@ def _collect_tile_types(pages):
     return {tile.get('type') for tile in _tiles(pages)}
 
 
+def validate_config(config):
+    """Human-readable warnings for suspicious [Nordlys] config.
+
+    Purely advisory: generation always proceeds, skipping what it cannot
+    render, but the warnings point at what (and where) to fix.
+    """
+    warnings = []
+    mode = config.get('theme', {}).get('mode', 'auto')
+    if mode not in _THEME_MODES:
+        warnings.append(
+            f"[[theme]] mode '{mode}' is not one of auto, dark, light"
+        )
+
+    pages = config.get('pages', [])
+    if not pages:
+        warnings.append('no pages configured under [[pages]]')
+    for page in pages:
+        page_id = page.get('id', '?')
+        if not page.get('layout'):
+            warnings.append(f"page '{page_id}' has no rows")
+        for row in page.get('layout', []):
+            if not row.get('tiles'):
+                warnings.append(
+                    f"page '{page_id}': row '{row.get('title', '?')}' has no tiles"
+                )
+            for tile in row.get('tiles', []):
+                warnings.extend(_validate_tile(page_id, tile))
+    return warnings
+
+
+def _validate_tile(page_id, tile):
+    warnings = []
+    tile_type = tile.get('type')
+    obs = _obs_list(tile)
+    where = (
+        f"page '{page_id}', tile "
+        f"'{tile.get('title') or (obs[0] if obs else tile_type)}'"
+    )
+
+    if tile_type not in _TILE_TYPES:
+        warnings.append(
+            f"{where}: unknown tile type '{tile_type}' "
+            f"(expected one of {', '.join(sorted(_TILE_TYPES))})"
+        )
+        return warnings
+
+    options = tile.get('options', {})
+    if tile_type in _OBS_TILE_TYPES and not obs:
+        warnings.append(f'{where}: {tile_type} tile needs an obs')
+
+    if tile_type == 'chart':
+        chart = options.get('chart', 'line')
+        if chart not in _CHART_KINDS:
+            warnings.append(
+                f"{where}: unknown chart kind '{chart}' "
+                f"(expected one of {', '.join(sorted(_CHART_KINDS))})"
+            )
+        elif chart not in ('windrose', 'calendar'):
+            if not obs:
+                warnings.append(f'{where}: {chart} chart needs an obs')
+            span = options.get('span', 'day')
+            if span not in _SPAN_SECONDS:
+                warnings.append(
+                    f"{where}: unknown span '{span}' "
+                    f"(expected one of {', '.join(_SPAN_SECONDS)})"
+                )
+
+    if tile_type == 'table':
+        table = options.get('table', 'stats')
+        if table not in _TABLE_KINDS:
+            warnings.append(
+                f"{where}: unknown table kind '{table}' "
+                f"(expected stats or records)"
+            )
+        elif not obs:
+            warnings.append(f'{where}: {table} table needs an obs list')
+        elif table == 'stats':
+            span = options.get('span', 'month')
+            if span not in _STATS_SPANS and span != 'alltime':
+                warnings.append(
+                    f"{where}: unknown stats span '{span}' "
+                    f"(expected week, month, year or alltime)"
+                )
+        elif table == 'records':
+            span = options.get('span', 'day')
+            if span not in _SPAN_SECONDS:
+                warnings.append(
+                    f"{where}: unknown span '{span}' "
+                    f"(expected one of {', '.join(_SPAN_SECONDS)})"
+                )
+    return warnings
+
+
+def validate_climo_days(definitions):
+    """Warnings for [[climatological_days]] definitions ({id: items})."""
+    warnings = []
+    for def_id, items in definitions.items():
+        where = f"[[climatological_days]] '{def_id}'"
+        if not items.get('obs'):
+            warnings.append(f'{where}: needs an obs')
+        aggregate = items.get('aggregate', 'max')
+        if aggregate not in _CLIMO_AGGREGATES:
+            warnings.append(
+                f"{where}: unknown aggregate '{aggregate}' "
+                f"(expected min, max, avg or sum)"
+            )
+        op = items.get('op')
+        if op not in ('<', '<=', '>', '>='):
+            warnings.append(
+                f"{where}: op must be one of <, <=, >, >= (got '{op}')"
+            )
+        value = items.get('value')
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            warnings.append(f"{where}: value must be a number (got '{value}')")
+    return warnings
+
+
 def zambretti(pressure_hpa, trend_hpa):
     """Zambretti forecast from sea-level pressure and its 3-hour change."""
     if pressure_hpa is None:
@@ -301,6 +432,17 @@ class NordlysSearchList(SearchList):
             live = _section_items(nordlys_dict['live'])
             if live.get('broker'):
                 config['live'] = live
+
+        for warning in validate_config(config):
+            log.warning('Nordlys skin.conf: %s', warning)
+        if 'climatological_days' in getattr(nordlys_dict, 'sections', []):
+            section = nordlys_dict['climatological_days']
+            definitions = {
+                def_id: _section_items(section[def_id])
+                for def_id in section.sections
+            }
+            for warning in validate_climo_days(definitions):
+                log.warning('Nordlys skin.conf: %s', warning)
 
         pages = config['pages']
         tile_types = _collect_tile_types(pages)

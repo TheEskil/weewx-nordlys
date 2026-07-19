@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/eskil/weewx-nordlys/docs/config.schema.json",
+  "title": "Nordlys resolved skin configuration",
+  "description": "The `config` object of the Nordlys data payload - the JSON form of skin.conf [Nordlys], as serialized by the search-list extension. See docs/config-reference.md.",
+  "type": "object",
+  "required": ["pages"],
+  "properties": {
+    "theme": {
+      "type": "object",
+      "properties": {
+        "mode": { "enum": ["auto", "dark", "light"] },
+        "dark": { "$ref": "#/$defs/tokenOverrides" },
+        "light": { "$ref": "#/$defs/tokenOverrides" }
+      },
+      "additionalProperties": false
+    },
+    "live": {
+      "type": "object",
+      "required": ["broker"],
+      "properties": {
+        "broker": { "type": "string", "pattern": "^wss?://" },
+        "topic": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "pages": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/page" }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "tokenOverrides": {
+      "type": "object",
+      "description": "Any --nl-* design token, without the prefix",
+      "additionalProperties": { "type": "string" }
+    },
+    "page": {
+      "type": "object",
+      "required": ["id", "title", "layout"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "layout": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/row" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "row": {
+      "type": "object",
+      "required": ["tiles"],
+      "properties": {
+        "title": { "type": "string" },
+        "columns": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "tiles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tile" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "tile": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "gauge",
+            "stat",
+            "chart",
+            "table",
+            "text",
+            "climatology",
+            "celestial",
+            "forecast"
+          ]
+        },
+        "obs": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "title": { "type": "string" },
+        "options": { "$ref": "#/$defs/tileOptions" }
+      },
+      "additionalProperties": false
+    },
+    "tileOptions": {
+      "type": "object",
+      "properties": {
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "style": { "enum": ["compass"] },
+        "color": { "type": "string" },
+        "colors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "cold_below": { "type": "number" },
+        "hot_above": { "type": "number" },
+        "chart": {
+          "enum": ["line", "area", "bar", "scatter", "windrose", "calendar"]
+        },
+        "span": { "enum": ["day", "week", "month", "year", "alltime"] },
+        "table": { "enum": ["stats", "records"] },
+        "aggregate": { "enum": ["avg", "min", "max", "sum"] },
+        "bands": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 1
+        },
+        "calm_below": { "type": "number" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

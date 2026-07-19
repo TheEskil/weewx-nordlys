@@ -66,6 +66,11 @@
   <main>
     {#if activePage}
       <Page page={activePage} payload={data} />
+    {:else}
+      <p class="empty">
+        No pages configured. Add a page under [Nordlys] [[pages]] in
+        skin.conf and re-run the report.
+      </p>
     {/if}
   </main>
 
@@ -98,6 +103,10 @@
   main {
     flex: 1;
     padding: var(--nl-space-4) 0 var(--nl-space-6);
+  }
+
+  .empty {
+    color: var(--nl-text-dim);
   }
 
   footer {

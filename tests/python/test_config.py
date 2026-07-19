@@ -26,6 +26,8 @@ from nordlys import (  # noqa: E402
     _page_config,
     _theme_config,
     _tile_config,
+    validate_climo_days,
+    validate_config,
     zambretti,
 )
 
@@ -283,6 +285,94 @@ class TestZambretti(unittest.TestCase):
         self.assertIsNotNone(zambretti(900.0, 0.0))
         self.assertIsNotNone(zambretti(1080.0, 0.0))
         self.assertIsNone(zambretti(None, 0.0))
+
+
+class TestValidateConfig(unittest.TestCase):
+    def _page(self, tiles):
+        return {'pages': [{'id': 'p', 'title': 'P', 'layout': [{'tiles': tiles}]}]}
+
+    def test_valid_config_has_no_warnings(self):
+        config = self._page(
+            [
+                {'type': 'gauge', 'obs': 'outTemp'},
+                {
+                    'type': 'chart',
+                    'obs': ['outTemp'],
+                    'options': {'chart': 'line', 'span': 'week'},
+                },
+                {
+                    'type': 'table',
+                    'obs': ['outTemp'],
+                    'options': {'table': 'stats', 'span': 'alltime'},
+                },
+                {'type': 'celestial'},
+            ]
+        )
+        self.assertEqual(validate_config(config), [])
+
+    def test_empty_pages_warns(self):
+        self.assertTrue(validate_config({'pages': []}))
+
+    def test_unknown_tile_type(self):
+        warnings = validate_config(self._page([{'type': 'sparkline'}]))
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("unknown tile type 'sparkline'", warnings[0])
+
+    def test_gauge_without_obs(self):
+        warnings = validate_config(self._page([{'type': 'gauge'}]))
+        self.assertIn('gauge tile needs an obs', warnings[0])
+
+    def test_bad_chart_kind_and_span(self):
+        warnings = validate_config(
+            self._page(
+                [
+                    {'type': 'chart', 'obs': 'x', 'options': {'chart': 'pie'}},
+                    {
+                        'type': 'chart',
+                        'obs': 'x',
+                        'options': {'chart': 'line', 'span': 'decade'},
+                    },
+                ]
+            )
+        )
+        self.assertEqual(len(warnings), 2)
+        self.assertIn("unknown chart kind 'pie'", warnings[0])
+        self.assertIn("unknown span 'decade'", warnings[1])
+
+    def test_bad_theme_mode(self):
+        warnings = validate_config(
+            {'theme': {'mode': 'night'}, 'pages': [{'id': 'p', 'layout': []}]}
+        )
+        self.assertTrue(any('night' in w for w in warnings))
+
+    def test_stats_table_span(self):
+        warnings = validate_config(
+            self._page(
+                [
+                    {
+                        'type': 'table',
+                        'obs': ['outTemp'],
+                        'options': {'table': 'stats', 'span': 'day'},
+                    }
+                ]
+            )
+        )
+        self.assertIn("unknown stats span 'day'", warnings[0])
+
+
+class TestValidateClimoDays(unittest.TestCase):
+    def test_valid_definition(self):
+        definitions = {
+            'frost': {'obs': 'outTemp', 'aggregate': 'min', 'op': '<', 'value': 0}
+        }
+        self.assertEqual(validate_climo_days(definitions), [])
+
+    def test_bad_definition(self):
+        definitions = {
+            'broken': {'aggregate': 'median', 'op': '!=', 'value': 'cold'}
+        }
+        warnings = validate_climo_days(definitions)
+        self.assertEqual(len(warnings), 4)  # obs, aggregate, op, value
 
 
 if __name__ == '__main__':

@@ -8,6 +8,16 @@ edits are ever needed.
 **Status: early development.** See [PLAN.md](PLAN.md) for the design and
 roadmap.
 
+## Documentation
+
+- [Configuration reference](docs/config-reference.md) - every skin.conf
+  option: pages, tiles, charts, tables, climatological days, live updates
+- [Theming guide](docs/theming.md) - the `--nl-*` token set, overrides,
+  and `user.css`
+- [Data contract](docs/data-contract.md) - the Python <-> front-end
+  payload (v1), with a [JSON Schema](docs/config.schema.json) for the
+  config
+
 ## Design
 
 - Dark-first "polar night" theme with aurora accents; derived "arctic
