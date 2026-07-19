@@ -63,14 +63,21 @@ _TREND_SECONDS = 10800
 
 # Rolling chart timespans, anchored at the last archive record.
 _SPAN_SECONDS = {
-    'day': 86400,
+    '24h': 86400,
     'week': 7 * 86400,
     'month': 30 * 86400,
     'year': 365 * 86400,
 }
+# Calendar-bound day spans, resolved via archiveDaySpan(days_ago=N).
+# 'day' is calendar today (midnight -> now); 'yesterday' the prior day.
+_CALENDAR_DAY_SPANS = {'day': 0, 'yesterday': 1}
+# All spans a chart/records tile may reference.
+_CHART_SPANS = set(_SPAN_SECONDS) | set(_CALENDAR_DAY_SPANS)
 # Default aggregation interval per span (None = raw archive records).
 _SPAN_AGG_INTERVAL = {
+    '24h': None,
     'day': None,
+    'yesterday': None,
     'week': 3600,
     'month': 10800,
     'year': 86400,
@@ -83,14 +90,18 @@ _SUM_OBS = {'rain'}
 _ROSE_BANDS = [2, 4, 6, 9, 12]
 _ROSE_CALM_BELOW = 0.5
 
-# Stats tables use calendar-bound spans (like weewx $week/$month/$year).
+# Stats tables use calendar-bound spans (like weewx $day/$week/$month).
 _STATS_SPANS = {
+    'day': lambda ts: archiveDaySpan(ts),
+    'yesterday': lambda ts: archiveDaySpan(ts, days_ago=1),
     'week': archiveWeekSpan,
     'month': archiveMonthSpan,
     'year': archiveYearSpan,
 }
 # strftime formats for extreme times per stats span.
 _STATS_TIME_FORMAT = {
+    'day': '%H:%M',
+    'yesterday': '%H:%M',
     'week': '%a %H:%M',
     'month': '%d %b',
     'year': '%d %b',
@@ -168,7 +179,11 @@ def _tile_config(obs_key, section):
     tile = {'type': tile_type}
     obs = section.get('obs')
     if obs is None and tile_type in _OBS_DEFAULTING_TILE_TYPES:
-        obs = obs_key
+        # Windrose charts plot wind speed/direction internally and
+        # reference no named observation, so they must not inherit the
+        # section name as an obs (it would look like an absent sensor).
+        if not (tile_type == 'chart' and section.get('chart') == 'windrose'):
+            obs = obs_key
     if obs is not None:
         tile['obs'] = obs
     if 'title' in section:
@@ -246,6 +261,19 @@ def _forced_obs(pages):
     return forced
 
 
+def _span_timespan(span, last_ts):
+    """TimeSpan for a chart/records span anchored at the last record.
+
+    Calendar-bound day spans ('day', 'yesterday') snap to local midnight;
+    the rest ('24h', 'week', 'month', 'year') are rolling windows.
+    """
+    if span in _CALENDAR_DAY_SPANS:
+        return archiveDaySpan(last_ts, days_ago=_CALENDAR_DAY_SPANS[span])
+    if span in _SPAN_SECONDS:
+        return TimeSpan(last_ts - _SPAN_SECONDS[span], last_ts)
+    return None
+
+
 def _collect_obs(pages):
     """Observation keys needing current data, in config order."""
     keys = []
@@ -281,7 +309,7 @@ def _collect_chart_needs(pages):
             calendar_needs.append({**options, 'obs': _obs_list(tile)[0:1]})
             continue
         span = options.get('span', 'day')
-        if span not in _SPAN_SECONDS and span != 'archive':
+        if span not in _CHART_SPANS and span != 'archive':
             continue
         if chart == 'windrose':
             rose_needs.setdefault(span, options)
@@ -396,10 +424,10 @@ def _validate_tile(page_id, tile):
             if not obs:
                 warnings.append(f'{where}: {chart} chart needs an obs')
             span = options.get('span', 'day')
-            if span not in _SPAN_SECONDS and span != 'archive':
+            if span not in _CHART_SPANS and span != 'archive':
                 warnings.append(
                     f"{where}: unknown span '{span}' "
-                    f"(expected one of {', '.join(_SPAN_SECONDS)} or archive)"
+                    f"(expected one of {', '.join(sorted(_CHART_SPANS))} or archive)"
                 )
 
     if tile_type == 'table':
@@ -420,10 +448,10 @@ def _validate_tile(page_id, tile):
                 )
         elif table == 'records':
             span = options.get('span', 'day')
-            if span not in _SPAN_SECONDS and span != 'archive':
+            if span not in _CHART_SPANS and span != 'archive':
                 warnings.append(
                     f"{where}: unknown span '{span}' "
-                    f"(expected one of {', '.join(_SPAN_SECONDS)} or archive)"
+                    f"(expected one of {', '.join(sorted(_CHART_SPANS))} or archive)"
                 )
     return warnings
 
@@ -550,7 +578,7 @@ class NordlysSearchList(SearchList):
             almanac = None
             forecast = None
         else:
-            span_timespans = self._rolling_spans(
+            span_timespans = self._chart_timespans(
                 series_needs, rose_needs, last_ts
             )
             span_intervals = _SPAN_AGG_INTERVAL
@@ -758,16 +786,17 @@ class NordlysSearchList(SearchList):
     # chart series
 
     @staticmethod
-    def _rolling_spans(series_needs, rose_needs, last_ts):
-        """{span: TimeSpan} for the rolling spans any tile references."""
+    def _chart_timespans(series_needs, rose_needs, last_ts):
+        """{span: TimeSpan} for every chart span any tile references."""
         if not last_ts:
             return {}
         spans = set(series_needs) | set(rose_needs)
-        return {
-            span: TimeSpan(last_ts - _SPAN_SECONDS[span], last_ts)
-            for span in spans
-            if span in _SPAN_SECONDS
-        }
+        result = {}
+        for span in spans:
+            timespan = _span_timespan(span, last_ts)
+            if timespan is not None:
+                result[span] = timespan
+        return result
 
     def _series_data(self, series_needs, db_manager, span_timespans, span_intervals):
         if not series_needs:

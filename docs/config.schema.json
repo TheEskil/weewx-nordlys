@@ -107,7 +107,7 @@
           "enum": ["line", "area", "bar", "scatter", "windrose", "calendar"]
         },
         "span": {
-          "enum": ["day", "week", "month", "year", "alltime", "archive"]
+          "enum": ["24h", "day", "yesterday", "week", "month", "year", "alltime", "archive"]
         },
         "table": { "enum": ["stats", "records"] },
         "aggregate": { "enum": ["avg", "min", "max", "sum"] },

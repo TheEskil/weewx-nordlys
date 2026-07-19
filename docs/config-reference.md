@@ -140,14 +140,17 @@ value then reads "-").
 
 ```ini
     chart = line         # line | area | bar | scatter | windrose | calendar
-    span = day           # day | week | month | year (rolling windows)
+    span = day           # 24h | day | yesterday | week | month | year
     obs = outTemp, dewpoint     # one or many series
     colors = accent, accent-3   # optional per-series colors
 ```
 
-- Series are aggregated per span: raw (day), hourly avg (week), 3-hourly
-  (month), daily (year). Rain is summed: hourly buckets on `day`, daily
-  beyond - pair it with `chart = bar`.
+- Spans: `day` is calendar today (midnight -> now) and `yesterday` the
+  previous calendar day; `24h` is a trailing 24-hour window (the old
+  `day` behavior); `week`/`month`/`year` are rolling windows.
+- Series are aggregated per span: raw (`24h`/`day`/`yesterday`), hourly
+  avg (week), 3-hourly (month), daily (year). Rain is summed: hourly
+  buckets on the day spans, daily beyond - pair it with `chart = bar`.
 - `windrose` extras: `bands = 2, 4, 6, 9, 12` (speed band upper bounds,
   report units) and `calm_below = 0.5`.
 - `calendar` extras: `aggregate = avg` (`min`/`max`/`sum` of each day),
@@ -157,8 +160,8 @@ value then reads "-").
 
 ```ini
     table = stats        # stats | records
-    span = month         # stats: week | month | year | alltime (calendar-bound)
-                         # records: day | week | month | year (rolling)
+    span = month         # stats: day | yesterday | week | month | year | alltime
+                         # records: 24h | day | yesterday | week | month | year
     obs = outTemp, outHumidity, barometer, windSpeed, rain
 ```
 

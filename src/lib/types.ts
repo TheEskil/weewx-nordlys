@@ -205,7 +205,8 @@ export interface TileOptions {
   hot_above?: number
   /** chart kind: line | area | bar | scatter | windrose */
   chart?: string
-  /** chart timespan: day | week | month | year (default day) */
+  /** chart timespan: 24h | day | yesterday | week | month | year
+   * (default day = calendar today; 24h = trailing window) */
   span?: string
   /** wind-rose speed band upper bounds (report units) */
   bands?: number[]
