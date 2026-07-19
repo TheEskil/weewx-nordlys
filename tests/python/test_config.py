@@ -688,6 +688,12 @@ class TestValidateClimoDays(unittest.TestCase):
         warnings = validate_climo_days(definitions)
         self.assertEqual(len(warnings), 4)  # obs, aggregate, op, value
 
+    def test_disabled_definition_is_not_validated(self):
+        # A removed (enable=false) default may be stripped to nothing but
+        # must not produce warnings.
+        definitions = {'ice_days': {'enable': False}}
+        self.assertEqual(validate_climo_days(definitions), [])
+
 
 if __name__ == '__main__':
     unittest.main()

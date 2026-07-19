@@ -524,6 +524,10 @@ def validate_climo_days(definitions):
     """Warnings for [[climatological_days]] definitions ({id: items})."""
     warnings = []
     for def_id, items in definitions.items():
+        # A disabled definition (enable=false) is skipped at generation,
+        # so don't nag about its (possibly stripped-down) config.
+        if not items.get('enable', True):
+            continue
         where = f"[[climatological_days]] '{def_id}'"
         if not items.get('obs'):
             warnings.append(f'{where}: needs an obs')
@@ -1062,6 +1066,10 @@ class NordlysSearchList(SearchList):
             days = []
             for def_id in section.sections:
                 definition = _section_items(section[def_id])
+                # weewx merges weewx.conf over skin.conf but cannot delete
+                # a section, so a shipped default is removed with enable=false.
+                if not definition.get('enable', True):
+                    continue
                 # A climatological-day count for an absent sensor (e.g.
                 # "rain days" with no rain gauge) is meaningless noise.
                 if definition.get('obs') in empty_obs:

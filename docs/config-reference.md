@@ -77,8 +77,35 @@ First-class day-counting definitions, rendered by `climatology` tiles:
 ```
 
 A day is counted when its daily `aggregate` of `obs` compares true
-against `value`. The examples shipped in skin.conf cover frost, summer,
-warm, rain, and storm days; add or change definitions freely.
+against `value`. The shipped defaults follow the Norwegian (MET)
+conventions: frost (frostdøgn), ice (isdøgn), summer (sommerdager ≥ 20),
+tropical days (tropedager ≥ 30), tropical nights (tropenetter), precip
+(nedbørdøgn), growing (vekstdøgn) and storm days. Labels ship in English;
+i18n is a future issue.
+
+Note: with weewx daily summaries, `tropical_nights` counts the 24-hour
+min ≥ 20 °C (*tropedøgn*); the strict *tropenatt* (min over 20:00-08:00)
+is not expressible from daily summaries.
+
+**Add / override / remove** - all from weewx.conf, no skin edits:
+
+```ini
+    [[[Nordlys]]]
+        [[[[climatological_days]]]]
+            [[[[[summer_days]]]]]        # override a threshold
+                value = 25               # German/DWD summer day
+            [[[[[ice_days]]]]]           # remove a shipped default
+                enable = false
+            [[[[[hot_days]]]]]           # add a new one
+                label = Hot days
+                obs = outTemp
+                aggregate = max
+                op = >=
+                value = 28
+```
+
+weewx merges weewx.conf over skin.conf but cannot delete a section, so
+removal is done with `enable = false` (the SLE skips disabled defs).
 
 ## `[[pages]]` - pages, rows, tiles
 
