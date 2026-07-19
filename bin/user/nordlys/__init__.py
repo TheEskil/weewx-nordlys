@@ -40,6 +40,10 @@ _TABLE_KINDS = {'stats', 'records'}
 _THEME_MODES = {'auto', 'dark', 'light'}
 # Tile types that render a single observation from `current`.
 _OBS_TILE_TYPES = {'gauge', 'stat'}
+# Tile types that reference an observation and so default `obs` from the
+# section name. Other types (text, climatology, celestial, forecast,
+# reports) ignore `obs` and must not inherit the section name.
+_OBS_DEFAULTING_TILE_TYPES = {'gauge', 'stat', 'chart', 'table'}
 _CLIMO_AGGREGATES = {'min', 'max', 'avg', 'sum'}
 
 # Keys on a row section that are settings, not tiles.
@@ -160,7 +164,13 @@ def _section_items(section):
 
 
 def _tile_config(obs_key, section):
-    tile = {'type': section.get('type', 'stat'), 'obs': section.get('obs', obs_key)}
+    tile_type = section.get('type', 'stat')
+    tile = {'type': tile_type}
+    obs = section.get('obs')
+    if obs is None and tile_type in _OBS_DEFAULTING_TILE_TYPES:
+        obs = obs_key
+    if obs is not None:
+        tile['obs'] = obs
     if 'title' in section:
         tile['title'] = section['title']
     options = {
@@ -350,6 +360,10 @@ def _validate_tile(page_id, tile):
     options = tile.get('options', {})
     if tile_type in _OBS_TILE_TYPES and not obs:
         warnings.append(f'{where}: {tile_type} tile needs an obs')
+    if obs and tile_type not in _OBS_DEFAULTING_TILE_TYPES:
+        warnings.append(
+            f"{where}: {tile_type} tile ignores obs '{obs[0]}'"
+        )
 
     if tile_type == 'chart':
         chart = options.get('chart', 'line')
