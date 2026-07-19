@@ -144,7 +144,23 @@ and the front-end fetches it.
     "always_up": true,       // midnight sun
     "always_down": false,    // polar night
     "moon_phase": "waxing crescent (increasing to full)",
-    "moon_fullness": 31      // percent illuminated
+    "moon_fullness": 31,     // percent illuminated
+    "hasExtras": true,       // pyephem present -> the fields below exist
+    // --- extras (only when a sectioned celestial tile asks + ephem): ---
+    "transit": "13:13",      // solar noon
+    "sun_alt": 39.5, "sun_az": 222.7,   // current sun position, degrees
+    "sun_now": 930,          // minutes from local midnight (path marker)
+    "day_length_delta": -564,           // seconds vs yesterday
+    "twilight": { "civil": ["02:10","23:59"], "nautical": [null,null],
+                  "astronomical": [null,null] },   // [dawn, dusk] or null
+    "sun_path": [[0,-0.8],[30,-1.3], …],   // [minutes, altitude °] /30 min
+    "moonrise": "11:58", "moonset": "22:43",
+    "next_full_moon": "29 Jul 2026", "next_new_moon": "12 Aug 2026",
+    "seasons": {
+      "equinox":  { "date": "23 Sep 2026", "days": 65 },
+      "solstice": { "date": "21 Dec 2026", "days": 155, "kind": "winter" }
+    },
+    "planets": [ { "name": "Venus", "rise": "08:42", "set": "23:31" }, … ]
   },
 
   "forecast": {              // present when a forecast tile exists
