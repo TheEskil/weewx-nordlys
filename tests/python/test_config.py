@@ -40,6 +40,7 @@ from nordlys import (  # noqa: E402
     _span_timespan,
     _week_label,
     _collect_chart_needs,
+    _collect_history_needs,
     _collect_obs,
     _collect_stats_needs,
     _forced_obs,
@@ -623,6 +624,70 @@ class TestCollectStatsNeeds(unittest.TestCase):
         self.assertEqual(calendar, [])
 
 
+class TestCollectHistoryNeeds(unittest.TestCase):
+    def test_history_tiles_grouped_by_span(self):
+        pages = [
+            {
+                'layout': [
+                    {
+                        'tiles': [
+                            {
+                                'type': 'history',
+                                'obs': ['outTemp', 'windGust', 'rain'],
+                                'options': {'span': 'day'},
+                            },
+                            {
+                                'type': 'history',
+                                'obs': ['outTemp'],
+                                'options': {'span': 'month'},
+                            },
+                            {'type': 'stat', 'obs': 'UV'},  # not history
+                        ]
+                    }
+                ]
+            }
+        ]
+        self.assertEqual(
+            _collect_history_needs(pages),
+            {'day': ['outTemp', 'windGust', 'rain'], 'month': ['outTemp']},
+        )
+
+    def test_default_span_is_day_and_dedupes(self):
+        pages = [
+            {
+                'layout': [
+                    {
+                        'tiles': [
+                            {'type': 'history', 'obs': ['outTemp']},  # no span
+                            {'type': 'history', 'obs': ['outTemp', 'rain']},
+                        ]
+                    }
+                ]
+            }
+        ]
+        self.assertEqual(
+            _collect_history_needs(pages), {'day': ['outTemp', 'rain']}
+        )
+
+    def test_unknown_span_ignored(self):
+        pages = [
+            {
+                'layout': [
+                    {
+                        'tiles': [
+                            {
+                                'type': 'history',
+                                'obs': ['outTemp'],
+                                'options': {'span': 'week'},
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+        self.assertEqual(_collect_history_needs(pages), {})
+
+
 class TestZambretti(unittest.TestCase):
     def test_high_steady_pressure_is_settled(self):
         result = zambretti(1035.0, 0.2)
@@ -723,6 +788,24 @@ class TestValidateConfig(unittest.TestCase):
         )
         self.assertEqual(len(warnings), 1)
         self.assertIn("celestial tile ignores obs 'outTemp'", warnings[0])
+
+    def test_history_tile_valid(self):
+        for span in ('day', 'month'):
+            warnings = validate_config(
+                self._page(
+                    [{'type': 'history', 'obs': ['outTemp', 'rain'],
+                      'options': {'span': span}}]
+                )
+            )
+            self.assertEqual(warnings, [], f'{span} should be a valid history span')
+
+    def test_history_span_invalid(self):
+        warnings = validate_config(
+            self._page(
+                [{'type': 'history', 'obs': ['outTemp'], 'options': {'span': 'year'}}]
+            )
+        )
+        self.assertIn("unknown history span 'year'", warnings[0])
 
     def test_bad_chart_kind_and_span(self):
         warnings = validate_config(

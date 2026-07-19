@@ -39,4 +39,28 @@ describe('config.schema.json', () => {
       validate({ live: { broker: 'http://x' }, pages: [] }),
     ).toBe(false)
   })
+
+  it('accepts a history tile', () => {
+    const valid = validate({
+      pages: [
+        {
+          id: 'today',
+          title: 'Today',
+          layout: [
+            {
+              tiles: [
+                {
+                  type: 'history',
+                  obs: ['outTemp', 'windGust', 'rain'],
+                  options: { span: 'day' },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    expect(validate.errors ?? []).toEqual([])
+    expect(valid).toBe(true)
+  })
 })

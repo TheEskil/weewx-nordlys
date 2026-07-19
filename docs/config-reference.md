@@ -126,6 +126,13 @@ tropical days (tropedager ≥ 30), tropical nights (tropenetter), precip
 (nedbørdøgn), growing (vekstdøgn) and storm days. Labels ship in English;
 i18n is a future issue.
 
+The `climatology` tile renders these as a matrix - one row per definition,
+one column per month (Jan..Dec) plus a year total. Months outside the
+station's archive coverage render blank rather than a misleading `0`. On
+the Climate page a year picker (shown when the archive spans more than one
+year) swaps the whole matrix, calendar, and year stats between years,
+fetching past years from `climate-<year>.json`.
+
 Note: with weewx daily summaries, `tropical_nights` counts the 24-hour
 min ≥ 20 °C (*tropedøgn*); the strict *tropenatt* (min over 20:00-08:00)
 is not expressible from daily summaries.
@@ -191,10 +198,11 @@ archive pages, with a "‹ Current" entry back to the live page.
 | `stat` | value + today min/max + trend | `obs` |
 | `chart` | uPlot chart, wind rose, or calendar heatmap | `obs` (except windrose/calendar) |
 | `table` | stats table or archive records table | `obs` list |
-| `climatology` | the `[[climatological_days]]` counts | - |
+| `climatology` | per-month/per-year `[[climatological_days]]` matrix | - |
 | `celestial` | sun/moon combo, or one almanac `section` | - |
 | `forecast` | Zambretti pressure forecast | - |
 | `reports` | links to all archive pages + NOAA reports | - |
+| `history` | cross-year "on this day/month" records | `obs` list |
 | `text` | a static text tile (`title`) | - |
 
 Common tile keys: `type`, `obs` (one name, or a comma list for charts
@@ -284,6 +292,21 @@ wettest day) as record cards instead of a min/avg/max table.
 
 **reports** - `stats = outTemp, rain` adds at-a-glance period stats
 (average/total per obs) to each month/year in the period browser.
+
+**history**
+
+```ini
+    span = day           # day | month  (historical window to compare)
+    obs = outTemp, windGust, rain
+```
+
+Cross-year "on this day in history" records: for each obs, the record
+high/low and mean over every matching day in the archive, tagged with the
+year (and time, for `span = day`) it occurred. `span = month` compares the
+whole current month across years instead. Sum obs (rain) report the
+wettest day and no low; wind/rain-rate/UV/radiation carry no low either.
+Like current conditions, history is not rendered on per-period archive
+pages. Absent sensors are dropped.
 
 ## `[[archive]]` - per-period page layout
 

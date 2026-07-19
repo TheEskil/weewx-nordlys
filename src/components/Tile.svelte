@@ -9,6 +9,7 @@
   import StatsTable from './StatsTable.svelte'
   import RecordsTable from './RecordsTable.svelte'
   import Climatology from './Climatology.svelte'
+  import History from './History.svelte'
   import Almanac from './Almanac.svelte'
   import Forecast from './Forecast.svelte'
   import Reports from './Reports.svelte'
@@ -68,6 +69,8 @@
     {/if}
   {:else if tile.type === 'climatology'}
     <Climatology {payload} />
+  {:else if tile.type === 'history'}
+    <History {tile} {payload} />
   {:else if tile.type === 'celestial'}
     <Almanac {tile} {payload} />
   {:else if tile.type === 'forecast'}

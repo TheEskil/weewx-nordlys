@@ -111,7 +111,8 @@
             "climatology",
             "celestial",
             "forecast",
-            "reports"
+            "reports",
+            "history"
           ]
         },
         "obs": {

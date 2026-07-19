@@ -37,8 +37,10 @@ CONTRACT_VERSION = 1
 
 _TILE_TYPES = {
     'gauge', 'stat', 'chart', 'table', 'text',
-    'climatology', 'celestial', 'forecast', 'reports',
+    'climatology', 'celestial', 'forecast', 'reports', 'history',
 }
+# Historical-record ("on this day/month") tiles compare across years.
+_HISTORY_SPANS = {'day', 'month'}
 _CHART_KINDS = {'line', 'area', 'bar', 'scatter', 'windrose', 'calendar'}
 _TABLE_KINDS = {'stats', 'records'}
 _THEME_MODES = {'auto', 'dark', 'light'}
@@ -47,7 +49,7 @@ _OBS_TILE_TYPES = {'gauge', 'stat'}
 # Tile types that reference an observation and so default `obs` from the
 # section name. Other types (text, climatology, celestial, forecast,
 # reports) ignore `obs` and must not inherit the section name.
-_OBS_DEFAULTING_TILE_TYPES = {'gauge', 'stat', 'chart', 'table'}
+_OBS_DEFAULTING_TILE_TYPES = {'gauge', 'stat', 'chart', 'table', 'history'}
 _CLIMO_AGGREGATES = {'min', 'max', 'avg', 'sum'}
 
 # Keys on a row section that are settings, not tiles.
@@ -458,6 +460,23 @@ def _collect_stats_needs(pages):
     return needs
 
 
+def _collect_history_needs(pages):
+    """{span: [obs, ...]} for 'on this day/month' history tiles - cross-year
+    records for the current calendar day (span=day) or month (span=month)."""
+    needs = {}
+    for tile in _tiles(pages):
+        if tile.get('type') != 'history':
+            continue
+        span = (tile.get('options') or {}).get('span', 'day')
+        if span not in ('day', 'month'):
+            continue
+        span_obs = needs.setdefault(span, [])
+        for obs in _obs_list(tile):
+            if obs not in span_obs:
+                span_obs.append(obs)
+    return needs
+
+
 def _collect_tile_types(pages):
     return {tile.get('type') for tile in _tiles(pages)}
 
@@ -627,6 +646,14 @@ def _validate_tile(page_id, tile):
                     f"(expected one of {', '.join(sorted(_CHART_SPANS))} or archive)"
                 )
 
+    if tile_type == 'history':
+        span = options.get('span', 'day')
+        if span not in _HISTORY_SPANS:
+            warnings.append(
+                f"{where}: unknown history span '{span}' "
+                f"(expected one of {', '.join(sorted(_HISTORY_SPANS))})"
+            )
+
     if tile_type == 'table':
         table = options.get('table', 'stats')
         if table not in _TABLE_KINDS:
@@ -781,6 +808,7 @@ class NordlysSearchList(SearchList):
         tile_types = _collect_tile_types(pages)
         series_needs, rose_needs, calendar_needs = _collect_chart_needs(pages)
         stats_needs = _collect_stats_needs(pages)
+        history_needs = _collect_history_needs(pages)
         db_manager = db_lookup()
         last_ts = db_manager.lastGoodStamp()
         empty_obs = self._empty_obs(
@@ -807,6 +835,7 @@ class NordlysSearchList(SearchList):
             climatology = None
             almanac = None
             forecast = None
+            history = None
         else:
             span_timespans = self._chart_timespans(
                 series_needs, rose_needs, last_ts
@@ -829,6 +858,7 @@ class NordlysSearchList(SearchList):
                 if 'forecast' in tile_types
                 else None
             )
+            history = self._history_data(history_needs, db_manager, last_ts)
 
         series = self._series_data(
             series_needs, db_manager, span_timespans, span_intervals
@@ -872,6 +902,7 @@ class NordlysSearchList(SearchList):
             'climatology': climatology,
             'almanac': almanac,
             'forecast': forecast,
+            'history': history,
             'period': period,
             'archives': archives,
         }
@@ -1253,6 +1284,125 @@ class NordlysSearchList(SearchList):
         return entry
 
     # ------------------------------------------------------------------
+    # historical records ("on this day / this month" across all years)
+
+    def _history_rows(self, obs, db_manager):
+        """(day start, min, mintime, max, maxtime, sum, count) over the whole
+        archive, for day-of-year / month-of-year record scans."""
+        sql = (
+            'SELECT dateTime, min, mintime, max, maxtime, sum, count '
+            f'FROM archive_day_{obs}'
+        )
+        return db_manager.genSql(sql)
+
+    def _history_data(self, history_needs, db_manager, last_ts):
+        """Cross-year records for the current day / month: for each obs, the
+        highest high and lowest low over every matching day in the archive,
+        tagged with the year (and time) they occurred."""
+        if not history_needs or not last_ts:
+            return None
+        ref = time.localtime(last_ts)
+        labels = self.generator.skin_dict.get('Labels', {}).get('Generic', {})
+        out = {}
+        for span, obs_list in history_needs.items():
+            entries = {}
+            for obs in obs_list:
+                entry = self._history_entry(obs, span, ref, db_manager, labels)
+                if entry:
+                    entries[obs] = entry
+            if entries:
+                out[span] = entries
+        return out or None
+
+    def _history_entry(self, obs, span, ref, db_manager, labels):
+        def matches(tt):
+            if span == 'month':
+                return tt.tm_mon == ref.tm_mon
+            return tt.tm_mon == ref.tm_mon and tt.tm_mday == ref.tm_mday
+
+        is_sum = obs in _SUM_OBS
+        # Record tuples carry (db value, time-or-None, day start, year).
+        # Rain is a daily-total obs: its "high" is the wettest day and its
+        # low/intra-day time are meaningless, so it reduces over the daily
+        # `sum` instead of min/max (matching the stats table's handling).
+        hi = lo = None
+        avg_total = 0.0
+        avg_count = 0
+        try:
+            for row in self._history_rows(obs, db_manager):
+                day_ts, mn, mntime, mx, mxtime, total, count = row
+                tt = time.localtime(day_ts)
+                if not matches(tt):
+                    continue
+                if is_sum:
+                    if total is None:
+                        continue
+                    avg_total += total
+                    avg_count += 1
+                    if hi is None or total > hi[0]:
+                        hi = (total, None, day_ts, tt.tm_year)
+                else:
+                    if mx is not None and (hi is None or mx > hi[0]):
+                        hi = (mx, mxtime, day_ts, tt.tm_year)
+                    if mn is not None and (lo is None or mn < lo[0]):
+                        lo = (mn, mntime, day_ts, tt.tm_year)
+                    if total is not None and count:
+                        avg_total += total
+                        avg_count += count
+        except Exception:
+            return None
+        if hi is None and lo is None:
+            return None
+
+        unit, group = weewx.units.getStandardUnitType(
+            db_manager.std_unit_system, obs
+        )
+        target_unit = self.generator.converter.convert(
+            weewx.units.ValueTuple(0.0, unit, group)
+        )[1]
+        decimals = self._decimals(self.generator.formatter, target_unit)
+        # Intra-day time only makes sense for a specific day; for a sum obs
+        # (whole-day total) or a month window, tag the record with its date.
+        intraday = span == 'day' and not is_sum
+
+        def record(rec):
+            value = self._convert_db_value(rec[0], obs, db_manager)
+            if value is None:
+                return None
+            result = {'value': self._round(value, decimals), 'year': rec[3]}
+            when = rec[1] if intraday else (rec[2] if span == 'month' else None)
+            if when:
+                fmt = self._formats['time'] if intraday else self._formats['date']
+                result['time'] = time.strftime(fmt, time.localtime(when))
+            return result
+
+        entry = {
+            'label': labels.get(obs, obs),
+            'unit': (
+                self.generator.formatter.get_label_string(
+                    target_unit, plural=False
+                ) or ''
+            ).strip(),
+            'decimals': decimals,
+        }
+        high = record(hi) if hi else None
+        if high:
+            entry['high'] = high
+        # No "lowest" for sum obs (wettest day only) or wind/rate/UV/rad,
+        # matching the current/stats convention where a minimum is noise.
+        if not is_sum and obs not in _NO_MIN_OBS and lo:
+            low = record(lo)
+            if low:
+                entry['low'] = low
+        if avg_count:
+            avg = self._convert_db_value(
+                avg_total / avg_count, obs, db_manager
+            )
+            if avg is not None:
+                entry['avg'] = self._round(avg, decimals)
+        return entry
+
+    # ------------------------------------------------------------------
     # climatology
 
     def _climatology_data(
@@ -1402,13 +1552,21 @@ class NordlysSearchList(SearchList):
             return None
 
         count = 0
+        # Per-month tally (Jan..Dec) plus which months had any archive data,
+        # so a month outside the station's coverage renders blank instead of
+        # a misleading 0 (matching the live site's N/A).
+        months = [0] * 12
+        covered = [False] * 12
         try:
             for row in self._daily_rows(obs, timespan, db_manager):
+                month = time.localtime(row[0]).tm_mon - 1
+                covered[month] = True
                 value = self._convert_db_value(
                     self._daily_value(row, aggregate), obs, db_manager
                 )
                 if value is not None and op(value, threshold):
                     count += 1
+                    months[month] += 1
         except Exception:
             return None
 
@@ -1422,6 +1580,8 @@ class NordlysSearchList(SearchList):
             'id': def_id,
             'label': definition.get('label', def_id),
             'count': count,
+            'months': months,
+            'covered': covered,
             'obs': obs,
             'aggregate': aggregate,
             'op': definition.get('op'),

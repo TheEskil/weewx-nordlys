@@ -25,6 +25,26 @@ test.describe('dashboard (today fixture)', () => {
     await expect(humidity.locator('.value')).toContainText('79')
   })
 
+  test('tile extremes carry their unit', async ({ page }) => {
+    // A stat tile's min/avg/max must read "79 %", "13.6 °C" - not a bare
+    // number that collides with the timestamp ("72 Sun 14:10").
+    const humidity = page
+      .locator('.tile', { hasText: 'Humidity', has: page.locator('.value') })
+      .first()
+    await expect(humidity.locator('.extremes')).toContainText('%')
+  })
+
+  test('renders the "on this day in history" tile', async ({ page }) => {
+    await expect(
+      page.getByRole('heading', { name: 'On this day in history' }),
+    ).toBeVisible()
+    // The record cards live in a tile of their own (section title is an h2).
+    const history = page.locator('.tile', { hasText: 'Highest' }).first()
+    await expect(history).toContainText('27.6°C')
+    // Records are tagged with the year they occurred.
+    await expect(history.getByText(/20\d{2}/).first()).toBeVisible()
+  })
+
   test('formats the footer as 24-hour European date/time', async ({
     page,
   }) => {
