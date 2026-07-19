@@ -107,6 +107,7 @@ Rows collapse to 2 columns under 900 px and 1 column under 560 px.
 | `climatology` | the `[[climatological_days]]` counts | - |
 | `celestial` | sun rise/set, day length, moon phase | - |
 | `forecast` | Zambretti pressure forecast | - |
+| `reports` | links to all archive pages + NOAA reports | - |
 | `text` | a static text tile (`title`) | - |
 
 Common tile keys: `type`, `obs` (one name, or a comma list for charts
@@ -156,6 +157,36 @@ and tables), `title` (defaults to the observation's label).
 `stats` shows min/avg/max with times (rain: total + wettest day).
 `records` is a sortable, paginated table of raw archive records built
 from the same series data the charts use.
+
+## `[[archive]]` - archive pages
+
+weewx generates one page per calendar month and year
+(`month-YYYY-MM.html`, `year-YYYY.html`) plus NOAA text reports
+(`NOAA/NOAA-*.txt`). The `[[archive]]` section defines the layout used
+by *all* archive pages - same rows/tiles as a normal page, with
+`span = archive` meaning "this page's own period":
+
+```ini
+    [[archive]]
+        [[[charts]]]
+            columns = 2
+            [[[[temperature]]]]
+                type = chart
+                chart = line
+                obs = outTemp, dewpoint
+                span = archive
+        [[[stats]]]
+            [[[[stats_table]]]]
+                type = table
+                table = stats
+                span = archive
+                obs = outTemp, rain
+```
+
+Archive series are aggregated 3-hourly on month pages and daily on year
+pages (rain per day on both). Current-conditions tiles (gauge/stat/
+celestial/forecast) are not available on archive pages. A `reports` tile
+on any normal page lists every generated period with links.
 
 ## `[Labels]`
 

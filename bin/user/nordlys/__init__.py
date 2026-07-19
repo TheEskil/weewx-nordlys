@@ -21,6 +21,8 @@ from weeutil.weeutil import (
     archiveMonthSpan,
     archiveWeekSpan,
     archiveYearSpan,
+    genMonthSpans,
+    genYearSpans,
     startOfDay,
 )
 from weewx.cheetahgenerator import SearchList
@@ -31,7 +33,7 @@ CONTRACT_VERSION = 1
 
 _TILE_TYPES = {
     'gauge', 'stat', 'chart', 'table', 'text',
-    'climatology', 'celestial', 'forecast',
+    'climatology', 'celestial', 'forecast', 'reports',
 }
 _CHART_KINDS = {'line', 'area', 'bar', 'scatter', 'windrose', 'calendar'}
 _TABLE_KINDS = {'stats', 'records'}
@@ -89,7 +91,18 @@ _STATS_TIME_FORMAT = {
     'month': '%d %b',
     'year': '%d %b',
     'alltime': '%d %b %Y',
+    'archive': '%d %b',
 }
+
+# Archive (SummaryBy) pages: the 'archive' span resolves to the page's
+# own period, with these aggregation intervals.
+_PERIOD_AGG_INTERVAL = {'month': 10800, 'year': 86400}
+# Default filename patterns for archive pages and NOAA reports; must
+# match the template names configured in skin.conf.
+_ARCHIVE_MONTH_PAGE = 'month-%Y-%m.html'
+_ARCHIVE_YEAR_PAGE = 'year-%Y.html'
+_NOAA_MONTH_FILE = 'NOAA/NOAA-%Y-%m.txt'
+_NOAA_YEAR_FILE = 'NOAA/NOAA-%Y.txt'
 
 # Zambretti forecaster (public-domain 1915 device mapping). The pressure
 # range 947-1050 hPa is normalized to an index into the trend tables.
@@ -238,7 +251,7 @@ def _collect_chart_needs(pages):
             calendar_needs.append({**options, 'obs': _obs_list(tile)[0:1]})
             continue
         span = options.get('span', 'day')
-        if span not in _SPAN_SECONDS:
+        if span not in _SPAN_SECONDS and span != 'archive':
             continue
         if chart == 'windrose':
             rose_needs.setdefault(span, options)
@@ -260,7 +273,7 @@ def _collect_stats_needs(pages):
         if options.get('table', 'stats') != 'stats':
             continue
         span = options.get('span', 'month')
-        if span not in _STATS_SPANS and span != 'alltime':
+        if span not in _STATS_SPANS and span not in ('alltime', 'archive'):
             continue
         span_obs = needs.setdefault(span, [])
         for obs in _obs_list(tile):
@@ -271,6 +284,21 @@ def _collect_stats_needs(pages):
 
 def _collect_tile_types(pages):
     return {tile.get('type') for tile in _tiles(pages)}
+
+
+def _detect_period(timespan):
+    """'month'/'year' when the timespan is exactly a calendar period
+    (i.e. a SummaryBy page is being generated), else None.
+
+    Compared via the period containing the timespan's midpoint, so
+    boundary conventions don't matter.
+    """
+    midpoint = (timespan.start + timespan.stop) // 2
+    if timespan == archiveMonthSpan(midpoint):
+        return 'month'
+    if timespan == archiveYearSpan(midpoint):
+        return 'year'
+    return None
 
 
 def validate_config(config):
@@ -334,10 +362,10 @@ def _validate_tile(page_id, tile):
             if not obs:
                 warnings.append(f'{where}: {chart} chart needs an obs')
             span = options.get('span', 'day')
-            if span not in _SPAN_SECONDS:
+            if span not in _SPAN_SECONDS and span != 'archive':
                 warnings.append(
                     f"{where}: unknown span '{span}' "
-                    f"(expected one of {', '.join(_SPAN_SECONDS)})"
+                    f"(expected one of {', '.join(_SPAN_SECONDS)} or archive)"
                 )
 
     if tile_type == 'table':
@@ -351,17 +379,17 @@ def _validate_tile(page_id, tile):
             warnings.append(f'{where}: {table} table needs an obs list')
         elif table == 'stats':
             span = options.get('span', 'month')
-            if span not in _STATS_SPANS and span != 'alltime':
+            if span not in _STATS_SPANS and span not in ('alltime', 'archive'):
                 warnings.append(
                     f"{where}: unknown stats span '{span}' "
-                    f"(expected week, month, year or alltime)"
+                    f"(expected week, month, year, alltime or archive)"
                 )
         elif table == 'records':
             span = options.get('span', 'day')
-            if span not in _SPAN_SECONDS:
+            if span not in _SPAN_SECONDS and span != 'archive':
                 warnings.append(
                     f"{where}: unknown span '{span}' "
-                    f"(expected one of {', '.join(_SPAN_SECONDS)})"
+                    f"(expected one of {', '.join(_SPAN_SECONDS)} or archive)"
                 )
     return warnings
 
@@ -433,6 +461,28 @@ class NordlysSearchList(SearchList):
             if live.get('broker'):
                 config['live'] = live
 
+        # Archive (SummaryBy) pages: the timespan is exactly a calendar
+        # month/year; render the [[archive]] layout for that period.
+        period_kind = _detect_period(timespan)
+        period = None
+        if period_kind:
+            sections = getattr(nordlys_dict, 'sections', [])
+            if 'archive' not in sections:
+                log.warning(
+                    'Nordlys: archive page generated but [Nordlys] has no '
+                    '[[archive]] layout section'
+                )
+                config['pages'] = []
+            else:
+                label = time.strftime(
+                    '%B %Y' if period_kind == 'month' else '%Y',
+                    time.localtime(timespan.start),
+                )
+                page = _page_config('archive', nordlys_dict['archive'])
+                page['title'] = label
+                config['pages'] = [page]
+                period = {'kind': period_kind, 'label': label}
+
         for warning in validate_config(config):
             log.warning('Nordlys skin.conf: %s', warning)
         if 'climatological_days' in getattr(nordlys_dict, 'sections', []):
@@ -446,19 +496,54 @@ class NordlysSearchList(SearchList):
 
         pages = config['pages']
         tile_types = _collect_tile_types(pages)
-        current = self._current_data(pages, db_lookup)
         series_needs, rose_needs, calendar_needs = _collect_chart_needs(pages)
-        series = self._series_data(series_needs, db_lookup)
-        windrose = self._windrose_data(rose_needs, db_lookup)
-        stats = self._stats_data(_collect_stats_needs(pages), db_lookup)
-        climatology = self._climatology_data(
-            nordlys_dict, tile_types, calendar_needs, db_lookup
+        stats_needs = _collect_stats_needs(pages)
+        db_manager = db_lookup()
+        last_ts = db_manager.lastGoodStamp()
+
+        if period:
+            # Everything is scoped to the page's own period; "now"-style
+            # data (current, almanac, forecast, climatology) is omitted.
+            period_span = TimeSpan(timespan.start, timespan.stop)
+            span_timespans = {'archive': period_span}
+            span_intervals = {'archive': _PERIOD_AGG_INTERVAL[period_kind]}
+            stats_spans = {'archive': period_span}
+            current = {}
+            climatology = None
+            almanac = None
+            forecast = None
+        else:
+            span_timespans = self._rolling_spans(
+                series_needs, rose_needs, last_ts
+            )
+            span_intervals = _SPAN_AGG_INTERVAL
+            stats_spans = self._calendar_stats_spans(
+                stats_needs, last_ts, db_manager
+            )
+            current = self._current_data(pages, db_lookup)
+            climatology = self._climatology_data(
+                nordlys_dict, tile_types, calendar_needs, db_lookup
+            )
+            almanac = (
+                self._almanac_data(db_lookup)
+                if 'celestial' in tile_types
+                else None
+            )
+            forecast = (
+                self._forecast_data(db_lookup)
+                if 'forecast' in tile_types
+                else None
+            )
+
+        series = self._series_data(
+            series_needs, db_manager, span_timespans, span_intervals
         )
-        almanac = (
-            self._almanac_data(db_lookup) if 'celestial' in tile_types else None
-        )
-        forecast = (
-            self._forecast_data(db_lookup) if 'forecast' in tile_types else None
+        windrose = self._windrose_data(rose_needs, db_manager, span_timespans)
+        stats = self._stats_data(stats_needs, db_manager, stats_spans)
+        archives = (
+            self._archives_index(db_manager)
+            if 'reports' in tile_types
+            else None
         )
         payload = {
             'meta': {
@@ -480,6 +565,8 @@ class NordlysSearchList(SearchList):
             'climatology': climatology,
             'almanac': almanac,
             'forecast': forecast,
+            'period': period,
+            'archives': archives,
         }
 
         # Escape "</" so the payload is safe inside a <script> element.
@@ -579,22 +666,35 @@ class NordlysSearchList(SearchList):
     # ------------------------------------------------------------------
     # chart series
 
-    def _series_data(self, series_needs, db_lookup):
-        if not series_needs:
-            return {}
-        db_manager = db_lookup()
-        last_ts = db_manager.lastGoodStamp()
+    @staticmethod
+    def _rolling_spans(series_needs, rose_needs, last_ts):
+        """{span: TimeSpan} for the rolling spans any tile references."""
         if not last_ts:
+            return {}
+        spans = set(series_needs) | set(rose_needs)
+        return {
+            span: TimeSpan(last_ts - _SPAN_SECONDS[span], last_ts)
+            for span in spans
+            if span in _SPAN_SECONDS
+        }
+
+    def _series_data(self, series_needs, db_manager, span_timespans, span_intervals):
+        if not series_needs:
             return {}
         labels = self.generator.skin_dict.get('Labels', {}).get('Generic', {})
 
         result = {}
         for span, obs_keys in series_needs.items():
-            timespan = TimeSpan(last_ts - _SPAN_SECONDS[span], last_ts)
+            timespan = span_timespans.get(span)
+            if timespan is None:
+                continue
+            interval = span_intervals.get(span)
             span_data = {}
             for obs in obs_keys:
                 try:
-                    entry = self._series(obs, span, timespan, db_manager, labels)
+                    entry = self._series(
+                        obs, interval, timespan, db_manager, labels
+                    )
                 except (
                     weewx.UnknownType,
                     weewx.UnknownAggregation,
@@ -607,14 +707,13 @@ class NordlysSearchList(SearchList):
                 result[span] = span_data
         return result
 
-    def _series(self, obs, span, timespan, db_manager, labels):
+    def _series(self, obs, interval, timespan, db_manager, labels):
         aggregate = None
-        interval = _SPAN_AGG_INTERVAL[span]
         if obs in _SUM_OBS:
-            # Rain is summed into buckets: hourly on the day span,
-            # daily beyond.
+            # Rain is summed into buckets: hourly at raw/hourly
+            # resolution, daily beyond.
             aggregate = 'sum'
-            interval = 3600 if span == 'day' else 86400
+            interval = 3600 if not interval or interval <= 3600 else 86400
         elif interval:
             aggregate = 'avg'
 
@@ -646,24 +745,31 @@ class NordlysSearchList(SearchList):
     # ------------------------------------------------------------------
     # stats tables
 
-    def _stats_data(self, stats_needs, db_lookup):
-        if not stats_needs:
-            return {}
-        db_manager = db_lookup()
-        last_ts = db_manager.lastGoodStamp()
+    @staticmethod
+    def _calendar_stats_spans(stats_needs, last_ts, db_manager):
+        """{span: TimeSpan} for calendar-bound stats spans."""
         if not last_ts:
+            return {}
+        spans = {}
+        for span in stats_needs:
+            if span == 'alltime':
+                first_ts = db_manager.firstGoodStamp()
+                if first_ts:
+                    spans[span] = TimeSpan(startOfDay(first_ts), last_ts)
+            elif span in _STATS_SPANS:
+                spans[span] = _STATS_SPANS[span](last_ts)
+        return spans
+
+    def _stats_data(self, stats_needs, db_manager, stats_spans):
+        if not stats_needs:
             return {}
         labels = self.generator.skin_dict.get('Labels', {}).get('Generic', {})
 
         result = {}
         for span, obs_keys in stats_needs.items():
-            if span == 'alltime':
-                first_ts = db_manager.firstGoodStamp()
-                if not first_ts:
-                    continue
-                timespan = TimeSpan(startOfDay(first_ts), last_ts)
-            else:
-                timespan = _STATS_SPANS[span](last_ts)
+            timespan = stats_spans.get(span)
+            if timespan is None:
+                continue
             span_data = {}
             for obs in obs_keys:
                 try:
@@ -956,17 +1062,15 @@ class NordlysSearchList(SearchList):
     # ------------------------------------------------------------------
     # wind rose
 
-    def _windrose_data(self, rose_needs, db_lookup):
+    def _windrose_data(self, rose_needs, db_manager, span_timespans):
         if not rose_needs:
-            return {}
-        db_manager = db_lookup()
-        last_ts = db_manager.lastGoodStamp()
-        if not last_ts:
             return {}
 
         result = {}
         for span, options in rose_needs.items():
-            timespan = TimeSpan(last_ts - _SPAN_SECONDS[span], last_ts)
+            timespan = span_timespans.get(span)
+            if timespan is None:
+                continue
             try:
                 entry = self._windrose(timespan, db_manager, options)
             except (weewx.UnknownType, weewx.CannotCalculate):
@@ -1014,6 +1118,43 @@ class NordlysSearchList(SearchList):
             'samples': total,
             'sectors': [[pct(count) for count in row] for row in sectors],
         }
+
+    # ------------------------------------------------------------------
+    # archives index
+
+    def _archives_index(self, db_manager):
+        """Every month/year in the database, with archive-page and NOAA
+        links (default filename patterns from skin.conf)."""
+        first_ts = db_manager.firstGoodStamp()
+        last_ts = db_manager.lastGoodStamp()
+        if not first_ts or not last_ts:
+            return None
+
+        months = []
+        for span in genMonthSpans(first_ts, last_ts):
+            start = time.localtime(span.start)
+            months.append(
+                {
+                    'id': time.strftime('%Y-%m', start),
+                    'label': time.strftime('%B %Y', start),
+                    'month': time.strftime('%b', start),
+                    'year': time.strftime('%Y', start),
+                    'page': time.strftime(_ARCHIVE_MONTH_PAGE, start),
+                    'noaa': time.strftime(_NOAA_MONTH_FILE, start),
+                }
+            )
+        years = []
+        for span in genYearSpans(first_ts, last_ts):
+            start = time.localtime(span.start)
+            years.append(
+                {
+                    'id': time.strftime('%Y', start),
+                    'label': time.strftime('%Y', start),
+                    'page': time.strftime(_ARCHIVE_YEAR_PAGE, start),
+                    'noaa': time.strftime(_NOAA_YEAR_FILE, start),
+                }
+            )
+        return {'months': months, 'years': years}
 
     def _format_altitude(self, altitude_vt):
         converted = self.generator.converter.convert(altitude_vt)

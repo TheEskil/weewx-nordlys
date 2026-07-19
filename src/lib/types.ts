@@ -18,6 +18,33 @@ export interface NordlysPayload {
   climatology?: Climatology | null
   almanac?: AlmanacData | null
   forecast?: ForecastData | null
+  /** set on archive (SummaryBy month/year) pages */
+  period?: PeriodInfo | null
+  /** all months/years in the database, for reports tiles */
+  archives?: ArchivesIndex | null
+}
+
+export interface PeriodInfo {
+  kind: 'month' | 'year'
+  label: string
+}
+
+export interface ArchivesIndex {
+  months: ArchiveLink[]
+  years: ArchiveLink[]
+}
+
+export interface ArchiveLink {
+  id: string
+  label: string
+  /** short month name; months only */
+  month?: string
+  /** owning year; months only */
+  year?: string
+  /** archive page filename */
+  page: string
+  /** NOAA text report path */
+  noaa: string
 }
 
 export interface StatsEntry {
@@ -152,6 +179,7 @@ export type TileType =
   | 'climatology'
   | 'celestial'
   | 'forecast'
+  | 'reports'
 
 export interface TileConfig {
   type: TileType

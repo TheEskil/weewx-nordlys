@@ -11,6 +11,7 @@
   import Climatology from './Climatology.svelte'
   import Almanac from './Almanac.svelte'
   import Forecast from './Forecast.svelte'
+  import Reports from './Reports.svelte'
 
   let { tile, payload }: { tile: TileConfig; payload: NordlysPayload } =
     $props()
@@ -49,6 +50,8 @@
     <Almanac {tile} {payload} />
   {:else if tile.type === 'forecast'}
     <Forecast {tile} {payload} />
+  {:else if tile.type === 'reports'}
+    <Reports {payload} />
   {:else if tile.type === 'text'}
     <p class="text">{tile.title ?? ''}</p>
   {:else}

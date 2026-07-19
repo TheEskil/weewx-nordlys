@@ -60,6 +60,7 @@
     pages={data.config.pages}
     active={activePageId}
     live={liveStatus}
+    period={data.period}
     onNavigate={(id) => (activePageId = id)}
   />
 

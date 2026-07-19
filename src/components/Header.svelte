@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PageConfig, Station } from '../lib/types'
+  import type { PageConfig, PeriodInfo, Station } from '../lib/types'
   import type { LiveStatus } from '../lib/live'
 
   let {
@@ -7,21 +7,28 @@
     pages,
     active,
     live = 'off',
+    period = null,
     onNavigate,
   }: {
     station: Station
     pages: PageConfig[]
     active: string
     live?: LiveStatus
+    period?: PeriodInfo | null
     onNavigate: (id: string) => void
   } = $props()
 </script>
 
 <header>
   <div class="station">
-    <h1>{station.name}</h1>
-    {#if station.location && station.location !== station.name}
-      <p class="location">{station.location}</p>
+    {#if period}
+      <h1><a class="home" href="index.html">{station.name}</a></h1>
+      <p class="location">{period.label} · archive</p>
+    {:else}
+      <h1>{station.name}</h1>
+      {#if station.location && station.location !== station.name}
+        <p class="location">{station.location}</p>
+      {/if}
     {/if}
   </div>
 
@@ -62,6 +69,15 @@
 
   h1 {
     font-size: var(--nl-fs-lg);
+  }
+
+  h1 .home {
+    color: inherit;
+  }
+
+  h1 .home:hover {
+    color: var(--nl-accent);
+    text-decoration: none;
   }
 
   .location {

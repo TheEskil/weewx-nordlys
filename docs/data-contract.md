@@ -139,9 +139,31 @@ and the front-end fetches it.
     "code": "B",             // Zambretti letter
     "text": "Fine weather",
     "trend": "steady"        // barometer over 3 h: rising|steady|falling
+  },
+
+  "period": {                // archive (SummaryBy) pages only, else null
+    "kind": "month",         // month | year
+    "label": "July 2026"
+  },
+
+  "archives": {              // present when a reports tile exists
+    "months": [ { "id": "2026-07", "label": "July 2026", "month": "Jul",
+                  "year": "2026", "page": "month-2026-07.html",
+                  "noaa": "NOAA/NOAA-2026-07.txt" } ],
+    "years":  [ { "id": "2026", "label": "2026", "page": "year-2026.html",
+                  "noaa": "NOAA/NOAA-2026.txt" } ]
   }
 }
 ```
+
+### Archive pages
+
+On SummaryBy month/year pages the SLE swaps `config.pages` for a single
+page built from `[Nordlys][[archive]]`, scoped to the page's period: the
+`archive` span key in `series`/`stats`/`windrose` resolves to that
+period (3-hourly aggregation for months, daily for years). `current`,
+`climatology`, `almanac`, and `forecast` are omitted; `period` is set so
+the front-end shows the archive header with a link back to the index.
 
 ## Semantics
 

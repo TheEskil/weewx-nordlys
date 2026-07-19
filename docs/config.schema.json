@@ -75,7 +75,8 @@
             "text",
             "climatology",
             "celestial",
-            "forecast"
+            "forecast",
+            "reports"
           ]
         },
         "obs": {
@@ -105,7 +106,9 @@
         "chart": {
           "enum": ["line", "area", "bar", "scatter", "windrose", "calendar"]
         },
-        "span": { "enum": ["day", "week", "month", "year", "alltime"] },
+        "span": {
+          "enum": ["day", "week", "month", "year", "alltime", "archive"]
+        },
         "table": { "enum": ["stats", "records"] },
         "aggregate": { "enum": ["avg", "min", "max", "sum"] },
         "bands": {

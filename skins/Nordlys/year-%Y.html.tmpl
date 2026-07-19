@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <title>$station.location - $year_name</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f6f9fc" media="(prefers-color-scheme: light)" />
+    <link rel="stylesheet" href="dist/nordlys.css" />
+    #if $nordlys_user_css
+    <link rel="stylesheet" href="$nordlys_user_css" />
+    #end if
+  </head>
+  <body>
+    ## Archive-page shell: the SLE detects the SummaryByYear timespan and
+    ## serializes the [Nordlys][[archive]] layout scoped to this year.
+    <script id="nordlys-data" type="application/json">$nordlys_json</script>
+    <div id="nordlys-app">
+      <div class="nl-fallback">
+        <h1>$station.location - $year_name</h1>
+      </div>
+    </div>
+    <script type="module" src="dist/nordlys.js"></script>
+  </body>
+</html>

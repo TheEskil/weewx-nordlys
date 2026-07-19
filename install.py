@@ -31,9 +31,18 @@ class NordlysInstaller(ExtensionInstaller):
                     [
                         'skins/Nordlys/skin.conf',
                         'skins/Nordlys/index.html.tmpl',
+                        'skins/Nordlys/month-%Y-%m.html.tmpl',
+                        'skins/Nordlys/year-%Y.html.tmpl',
                         'skins/Nordlys/nordlys.webmanifest.tmpl',
                         'skins/Nordlys/sw.js',
                         'skins/Nordlys/icon.svg',
+                    ],
+                ),
+                (
+                    'skins/Nordlys/NOAA',
+                    [
+                        'skins/Nordlys/NOAA/NOAA-%Y-%m.txt.tmpl',
+                        'skins/Nordlys/NOAA/NOAA-%Y.txt.tmpl',
                     ],
                 ),
                 (
