@@ -9,6 +9,7 @@ src/lib/types.ts).
 import functools
 import json
 import logging
+import os
 import re
 import time
 from bisect import bisect_right
@@ -27,6 +28,7 @@ from weeutil.weeutil import (
     genYearSpans,
     startOfDay,
 )
+from weeutil.config import accumulateLeaves as accumulate_leaves
 from weewx.cheetahgenerator import SearchList
 
 log = logging.getLogger(__name__)
@@ -1639,4 +1641,63 @@ class NordlysWeekGenerator(weewx.cheetahgenerator.CheetahGenerator):
         gen_dict[section_name]['summarize_by'] = 'None'
         self.init_extensions(gen_dict[section_name])
         self.generate(gen_dict[section_name], section_name, self.gen_ts)
+        self.teardown()
+
+
+class NordlysPageGenerator(weewx.cheetahgenerator.CheetahGenerator):
+    """Emits one canonical HTML file per configured [Nordlys][[pages]]
+    page (`<id>.html`, the first page also as `index.html`) from the
+    shared page shell. Pages are config, so page files follow the config
+    with no per-page template entries. The payload is identical across
+    files; the front-end activates the page named by the filename.
+    """
+
+    def run(self):
+        import Cheetah.Template
+
+        section_name = 'NordlysPageGenerator'
+        gen_dict = weewx.cheetahgenerator.deep_copy(self.skin_dict)
+        if section_name not in gen_dict:
+            return
+        self.init_extensions(gen_dict[section_name])
+        report_dict = accumulate_leaves(gen_dict[section_name])
+        template, dest_dir, encoding, binding = self._prepGen(report_dict)
+
+        db = self.db_binder.get_manager(binding)
+        last_ts = db.lastGoodStamp()
+        if not last_ts:
+            self.teardown()
+            return
+        timespan = TimeSpan(db.firstGoodStamp(), last_ts)
+
+        pages_section = self.skin_dict.get('Nordlys', {}).get('pages', {})
+        page_ids = list(getattr(pages_section, 'sections', []))
+        if not page_ids:
+            self.teardown()
+            return
+
+        # Build the (expensive) shared search list once, then render the
+        # shell per page with just the page context prepended.
+        base_list = self._getSearchList(
+            encoding, timespan, binding, section_name, template
+        )
+        for index, page_id in enumerate(page_ids):
+            title = pages_section[page_id].get('title', page_id)
+            filename = 'index.html' if index == 0 else f'{page_id}.html'
+            page_ctx = {
+                'nordlys_page': {'id': page_id, 'title': title, 'canonical': filename}
+            }
+            try:
+                compiled = Cheetah.Template.Template(
+                    file=template,
+                    searchList=[page_ctx] + base_list,
+                    filter='AssureUnicode',
+                    filtersLib=weewx.cheetahgenerator,
+                )
+                html = compiled.respond().encode(encoding)
+            except Exception as exception:
+                log.error('Nordlys: page %s failed: %s', filename, exception)
+                continue
+            with open(os.path.join(dest_dir, filename), 'wb') as handle:
+                handle.write(html)
         self.teardown()

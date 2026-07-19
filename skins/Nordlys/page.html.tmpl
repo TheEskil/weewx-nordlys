@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
-    <title>$station.location</title>
+    <title>$nordlys_page.title · $station.location</title>
+    <link rel="canonical" href="$nordlys_page.canonical" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="nordlys.webmanifest" />
     <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
@@ -15,12 +16,11 @@
     #end if
   </head>
   <body>
-    ## Thin shell: the search-list extension serializes {meta, config, current}
-    ## to JSON; the Nordlys front-end renders everything from it.
+    ## One file per configured page (canonical URL); the front-end reads
+    ## the filename and activates that page from the shared payload.
     <script id="nordlys-data" type="application/json">$nordlys_json</script>
     <div id="nordlys-app">
-      ## Server-rendered fallback: readable without JavaScript, replaced by
-      ## the app when it mounts.
+      ## Server-rendered fallback: readable without JavaScript.
       <div class="nl-fallback">
         <h1>$station.location</h1>
         <dl>

@@ -23,7 +23,8 @@
   function onChange(event: Event) {
     const value = (event.currentTarget as HTMLSelectElement).value
     if (value === '__back__') {
-      window.location.href = `index.html#${kind}`
+      // Return to the live page's canonical URL (week.html/month.html/…).
+      window.location.href = `${kind}.html`
     } else if (value !== '__current__') {
       const link = links.find((l) => l.id === value)
       if (link) window.location.href = link.page

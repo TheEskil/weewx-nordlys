@@ -30,7 +30,7 @@ class NordlysInstaller(ExtensionInstaller):
                     'skins/Nordlys',
                     [
                         'skins/Nordlys/skin.conf',
-                        'skins/Nordlys/index.html.tmpl',
+                        'skins/Nordlys/page.html.tmpl',
                         'skins/Nordlys/week-%Y-%m-%d.html.tmpl',
                         'skins/Nordlys/month-%Y-%m.html.tmpl',
                         'skins/Nordlys/year-%Y.html.tmpl',
