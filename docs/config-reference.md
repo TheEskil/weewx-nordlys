@@ -113,6 +113,14 @@ Rows collapse to 2 columns under 900 px and 1 column under 560 px.
 Common tile keys: `type`, `obs` (one name, or a comma list for charts
 and tables), `title` (defaults to the observation's label).
 
+Observations with no data over the whole archive (absent sensors - e.g.
+a station with no rain gauge, or `radiation` reporting nothing) are
+treated as empty: their gauge/stat/chart tiles are hidden, their rows
+dropped from stats/records tables, and "rain days"-style climatological
+counts suppressed. This keeps the default skin sensible on any station.
+Set `always_show = true` on a tile to keep it visible regardless (its
+value then reads "-").
+
 ### Options by tile type
 
 **gauge**

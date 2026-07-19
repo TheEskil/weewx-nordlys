@@ -116,7 +116,11 @@
           "items": { "type": "number" },
           "minItems": 1
         },
-        "calm_below": { "type": "number" }
+        "calm_below": { "type": "number" },
+        "always_show": {
+          "type": "boolean",
+          "description": "Keep the tile visible even when its observation has no data (absent sensor)."
+        }
       },
       "additionalProperties": true
     }

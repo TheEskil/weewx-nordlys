@@ -4,15 +4,17 @@
   import type { NordlysPayload, SeriesEntry, TileConfig } from '../lib/types'
   import { cssColor } from '../lib/color'
   import { degToCompass } from '../lib/format'
+  import { emptyObsSet, obsKeysOf } from '../lib/empty'
 
   let { tile, payload }: { tile: TileConfig; payload: NordlysPayload } =
     $props()
 
   const kind = $derived(tile.options?.chart ?? 'line')
   const span = $derived(tile.options?.span ?? 'day')
-  const obsKeys = $derived(
-    Array.isArray(tile.obs) ? tile.obs : tile.obs ? [tile.obs] : [],
+  const empty = $derived(
+    tile.options?.always_show ? new Set<string>() : emptyObsSet(payload),
   )
+  const obsKeys = $derived(obsKeysOf(tile).filter((key) => !empty.has(key)))
   const entries = $derived(
     obsKeys
       .map((key) => payload.series?.[span]?.[key])

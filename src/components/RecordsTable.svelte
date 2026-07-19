@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NordlysPayload, SeriesEntry, TileConfig } from '../lib/types'
   import { formatValue } from '../lib/format'
+  import { emptyObsSet, obsKeysOf } from '../lib/empty'
 
   let { tile, payload }: { tile: TileConfig; payload: NordlysPayload } =
     $props()
@@ -8,9 +9,10 @@
   const PAGE_SIZE = 24
 
   const span = $derived(tile.options?.span ?? 'day')
-  const obsKeys = $derived(
-    Array.isArray(tile.obs) ? tile.obs : tile.obs ? [tile.obs] : [],
+  const empty = $derived(
+    tile.options?.always_show ? new Set<string>() : emptyObsSet(payload),
   )
+  const obsKeys = $derived(obsKeysOf(tile).filter((key) => !empty.has(key)))
   const columns = $derived(
     obsKeys
       .map((key) => ({ key, entry: payload.series?.[span]?.[key] }))
