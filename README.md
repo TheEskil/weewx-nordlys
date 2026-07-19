@@ -63,6 +63,10 @@ python3 -m http.server 8123 --directory dev/weewx/public_html/nordlys
 The Python <-> front-end payload shape is documented in
 [docs/data-contract.md](docs/data-contract.md).
 
+## License
+
+[MIT](LICENSE)
+
 ## Installation
 
 Build the extension package from source (a binary release will follow):
