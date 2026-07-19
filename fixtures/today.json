@@ -199,6 +199,23 @@
             ]
           },
           {
+            "title": "On this day in history",
+            "columns": 1,
+            "tiles": [
+              {
+                "type": "history",
+                "obs": [
+                  "outTemp",
+                  "windGust",
+                  "rain"
+                ],
+                "options": {
+                  "span": "day"
+                }
+              }
+            ]
+          },
+          {
             "title": "Archive data (24 h)",
             "columns": 1,
             "tiles": [
@@ -11152,5 +11169,46 @@
     "code": "B",
     "text": "Fine weather",
     "trend": "steady"
+  },
+  "history": {
+    "day": {
+      "outTemp": {
+        "label": "Outside temperature",
+        "unit": "°C",
+        "decimals": 1,
+        "high": {
+          "value": 27.6,
+          "year": 2019,
+          "time": "15:12"
+        },
+        "low": {
+          "value": 6.4,
+          "year": 2023,
+          "time": "03:40"
+        },
+        "avg": 15.1
+      },
+      "windGust": {
+        "label": "Wind gust",
+        "unit": "m/s",
+        "decimals": 1,
+        "high": {
+          "value": 22.4,
+          "year": 2021,
+          "time": "18:05"
+        },
+        "avg": 6.2
+      },
+      "rain": {
+        "label": "Rain",
+        "unit": "mm",
+        "decimals": 1,
+        "high": {
+          "value": 18.6,
+          "year": 2020
+        },
+        "avg": 2.3
+      }
+    }
   }
 }

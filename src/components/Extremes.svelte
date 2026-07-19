@@ -16,20 +16,26 @@
     {#if obs.min}
       <span class="item">
         <Glyph kind="min" label="lowest" />
-        {formatValue(obs.min.value, decimals)}
+        <span>{formatValue(obs.min.value, decimals)}<span class="unit"
+            >{obs.unit}</span
+          ></span>
         {#if obs.min.time}<span class="time">{obs.min.time}</span>{/if}
       </span>
     {/if}
     {#if obs.avg !== undefined}
       <span class="item">
         <Glyph kind="avg" label="average" />
-        {formatValue(obs.avg, decimals)}
+        <span>{formatValue(obs.avg, decimals)}<span class="unit"
+            >{obs.unit}</span
+          ></span>
       </span>
     {/if}
     {#if obs.max}
       <span class="item">
         <Glyph kind="max" label="highest" />
-        {formatValue(obs.max.value, decimals)}
+        <span>{formatValue(obs.max.value, decimals)}<span class="unit"
+            >{obs.unit}</span
+          ></span>
         {#if obs.max.time}<span class="time">{obs.max.time}</span>{/if}
       </span>
     {/if}
@@ -50,6 +56,11 @@
     align-items: center;
     gap: 0.2em;
     white-space: nowrap;
+  }
+
+  .unit {
+    opacity: 0.7;
+    margin-left: 0.1em;
   }
 
   .time {

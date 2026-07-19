@@ -21,6 +21,8 @@ export interface NordlysPayload {
   climatology?: Climatology | null
   almanac?: AlmanacData | null
   forecast?: ForecastData | null
+  /** 'on this day/month' cross-year records: span -> obs -> record */
+  history?: Record<string, Record<string, HistoryEntry>> | null
   /** set on archive (SummaryBy month/year) pages */
   period?: PeriodInfo | null
   /** all months/years in the database, for reports tiles */
@@ -75,6 +77,24 @@ export interface StatsEntry {
   sum?: number
 }
 
+export interface HistoryEntry {
+  label: string
+  unit: string
+  decimals: number
+  /** record high over all matching days; year is when it occurred */
+  high?: HistoryRecord
+  low?: HistoryRecord
+  /** mean of the daily values over all matching days */
+  avg?: number
+}
+
+export interface HistoryRecord {
+  value: number | null
+  year: number
+  /** time of day (span=day) or date (span=month) it occurred */
+  time?: string
+}
+
 export interface Climatology {
   days?: ClimoDay[]
   calendar?: CalendarData
@@ -99,6 +119,10 @@ export interface ClimoDay {
   id: string
   label: string
   count: number
+  /** per-month tally (Jan..Dec) within the year */
+  months?: number[]
+  /** which months had any archive data; uncovered months render blank */
+  covered?: boolean[]
   obs: string
   aggregate: string
   op: string
@@ -252,6 +276,7 @@ export type TileType =
   | 'celestial'
   | 'forecast'
   | 'reports'
+  | 'history'
 
 export interface TileConfig {
   type: TileType

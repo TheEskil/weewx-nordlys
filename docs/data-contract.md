@@ -136,6 +136,10 @@ and the front-end fetches it.
   "climatology": {           // present when a climatology/calendar tile exists
     "days": [                // from [Nordlys][[climatological_days]]
       { "id": "frost_days", "label": "Frost days", "count": 12,
+        // per-month tally (Jan..Dec) + which months had archive data;
+        // an uncovered month renders blank rather than a misleading 0
+        "months": [3,4,2,0,0,0,0,0,0,0,1,2],
+        "covered": [true,true,true,true,true,true,true,true,true,true,true,true],
         "obs": "outTemp", "aggregate": "min", "op": "<", "value": 0,
         "unit": "°C" }
     ],
@@ -180,6 +184,21 @@ and the front-end fetches it.
     "trend": "steady"        // barometer over 3 h: rising|steady|falling
   },
 
+  "history": {               // present when a history tile exists; cross-year
+    "day": {                 // records for the current calendar day (span=day)
+      "outTemp": {           //   or month (span=month)
+        "label": "Outside temperature", "unit": "°C", "decimals": 1,
+        // record high/low over every matching day, tagged with the year;
+        // time = clock (span=day) or date (span=month) it occurred
+        "high": { "value": 21.7, "year": 2025, "time": "15:58" },
+        "low":  { "value": -8.0, "year": 2019, "time": "05:12" },
+        "avg":  14.0          // mean of the daily values across all years
+      }
+      // sum obs (rain) reduce over the daily total: `high` is the wettest
+      // day, no `low`; wind/rate/UV/radiation carry no `low` either
+    }
+  },
+
   "period": {                // archive pages only, else null
     "kind": "week",          // week | month | year
     "id": "2026-07-13",      // matches the archives-index id (picker selection)
@@ -207,9 +226,9 @@ On SummaryBy week/month/year pages the SLE swaps `config.pages` for a
 single page built from `[Nordlys][[archive]]`, scoped to the page's
 period: the `archive` span key in `series`/`stats`/`windrose` resolves to
 that period (hourly for weeks, 3-hourly for months, daily for years).
-`current`, `climatology`, `almanac`, and `forecast` are omitted; `period`
-is set so the front-end shows the archive header with a link back to the
-index.
+`current`, `climatology`, `almanac`, `forecast`, and `history` are
+omitted; `period` is set so the front-end shows the archive header with a
+link back to the index.
 
 ### Per-year climate slice (`climate-<year>.json`)
 
