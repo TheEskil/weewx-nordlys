@@ -59,8 +59,8 @@ def patch_config():
         'skin': 'Nordlys',
         'enable': 'true',
         'HTML_ROOT': 'public_html/nordlys',
-        # Nordic convention: report pressure as hPa (numerically = mbar).
-        'Units': {'Groups': {'group_pressure': 'hPa'}},
+        # No group_pressure override: this station reports mbar (metricwx)
+        # and the Nordlys skin labels it hPa by default.
     }
     # Log to the console so weectl report run failures are visible.
     config['Logging'] = {'root': {'handlers': ['console']}}

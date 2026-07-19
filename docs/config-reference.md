@@ -215,9 +215,21 @@ serialization). Set it per report in weewx.conf, e.g.:
 ```ini
     [[NordlysReport]]
         unit_system = metricwx
+```
+
+**Pressure labeling.** Metric stations report pressure in `mbar`, but
+Nordic / European convention - and nearly every weather site - shows the
+numerically identical value as `hPa`. Nordlys therefore labels `mbar` as
+`hPa` out of the box (see `[Units][[Labels]]` in `skin.conf`); no
+`group_pressure` override is needed. To show real `mbar`, either change
+that skin label back to `" mbar"`, or force a different pressure unit in
+weewx.conf:
+
+```ini
+    [[NordlysReport]]
         [[[Units]]]
             [[[[Groups]]]]
-                group_pressure = hPa
+                group_pressure = mmHg    # or inHg, mbar
 ```
 
 All thresholds in skin.conf (`cold_below`, gauge `min`/`max`, wind-rose
