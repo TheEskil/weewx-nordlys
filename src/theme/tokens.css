@@ -1,0 +1,119 @@
+/*
+ * Nordlys design tokens.
+ *
+ * Dark ("polar night") is the hero theme and the :root default.
+ * Light ("arctic daylight") is derived from it and applies via
+ * prefers-color-scheme, unless the user forces a mode with
+ * <html data-theme="dark|light"> (driven by skin.conf [theme] mode).
+ *
+ * Every token here is a documented override point for skin.conf
+ * [[theme]] and user.css. Accent colors are held to >= 3:1 non-text
+ * contrast; running text always uses the text tokens (>= 4.5:1).
+ */
+
+:root {
+  /* Surfaces */
+  --nl-bg: #0b1220;
+  --nl-surface: #111a2c;
+  --nl-border: #1e2a40;
+
+  /* Text */
+  --nl-text: #e8eef7;
+  --nl-text-dim: #8fa3bf;
+
+  /* Aurora accents */
+  --nl-accent: #3ddc97; /* aurora green */
+  --nl-accent-2: #4cc9f0; /* ice teal */
+  --nl-accent-3: #a78bfa; /* aurora violet */
+  --nl-accent-4: #e86bc1; /* magenta - rare red aurora, use sparingly */
+  --nl-warm: #f0b860; /* muted amber - warm/warning semantics */
+
+  /* Data semantics (kept separate from brand accents) */
+  --nl-cold: #4cc9f0;
+  --nl-hot: #f08a5c;
+  --nl-ok: #3ddc97;
+  --nl-alert: #f27e7e;
+
+  /* Chart series order */
+  --nl-series-1: #3ddc97;
+  --nl-series-2: #4cc9f0;
+  --nl-series-3: #a78bfa;
+  --nl-series-4: #e86bc1;
+  --nl-series-5: #f0b860;
+  --nl-series-6: #64748b;
+
+  /* Space - 8px scale (space-0 is the half step) */
+  --nl-space-0: 4px;
+  --nl-space-1: 8px;
+  --nl-space-2: 16px;
+  --nl-space-3: 24px;
+  --nl-space-4: 32px;
+  --nl-space-6: 48px;
+  --nl-space-8: 64px;
+
+  /* Shape & layout */
+  --nl-radius: 8px;
+  --nl-max-width: 1200px;
+
+  /* Type */
+  --nl-font:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --nl-fs-sm: 0.8125rem;
+  --nl-fs-base: 0.9375rem;
+  --nl-fs-lg: 1.25rem;
+  --nl-fs-xl: 2rem;
+
+  color-scheme: dark;
+}
+
+/* Arctic daylight - derived light palette */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --nl-bg: #f6f9fc;
+    --nl-surface: #ffffff;
+    --nl-border: #d7e0eb;
+    --nl-text: #17263b;
+    --nl-text-dim: #5b6c82;
+    --nl-accent: #0e9f6e;
+    --nl-accent-2: #0e7490;
+    --nl-accent-3: #7c3aed;
+    --nl-accent-4: #c2338f;
+    --nl-warm: #b07817;
+    --nl-cold: #0e7490;
+    --nl-hot: #c2410c;
+    --nl-ok: #0e9f6e;
+    --nl-alert: #c0362c;
+    --nl-series-1: #0e9f6e;
+    --nl-series-2: #0e7490;
+    --nl-series-3: #7c3aed;
+    --nl-series-4: #c2338f;
+    --nl-series-5: #b07817;
+    --nl-series-6: #64748b;
+    color-scheme: light;
+  }
+}
+
+:root[data-theme='light'] {
+  --nl-bg: #f6f9fc;
+  --nl-surface: #ffffff;
+  --nl-border: #d7e0eb;
+  --nl-text: #17263b;
+  --nl-text-dim: #5b6c82;
+  --nl-accent: #0e9f6e;
+  --nl-accent-2: #0e7490;
+  --nl-accent-3: #7c3aed;
+  --nl-accent-4: #c2338f;
+  --nl-warm: #b07817;
+  --nl-cold: #0e7490;
+  --nl-hot: #c2410c;
+  --nl-ok: #0e9f6e;
+  --nl-alert: #c0362c;
+  --nl-series-1: #0e9f6e;
+  --nl-series-2: #0e7490;
+  --nl-series-3: #7c3aed;
+  --nl-series-4: #c2338f;
+  --nl-series-5: #b07817;
+  --nl-series-6: #64748b;
+  color-scheme: light;
+}

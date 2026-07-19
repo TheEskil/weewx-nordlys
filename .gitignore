@@ -1,0 +1,4 @@
+node_modules/
+skins/Nordlys/dist/
+*.log
+.DS_Store

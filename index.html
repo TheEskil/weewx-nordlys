@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Nordlys - dev harness</title>
+  </head>
+  <body>
+    <!--
+      Dev harness only. Mirrors the thin shell that skins/Nordlys/*.html.tmpl
+      emits in production, but loads {config, data} from a JSON fixture
+      instead of an inline payload serialized by the search-list extension.
+    -->
+    <script id="nordlys-data" type="application/json" data-src="/fixtures/today.json"></script>
+    <div id="nordlys-app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

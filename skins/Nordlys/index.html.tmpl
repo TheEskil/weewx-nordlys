@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <title>$station.location</title>
+    <link rel="stylesheet" href="dist/nordlys.css" />
+  </head>
+  <body>
+    ## Thin shell: the search-list extension serializes {meta, config, current}
+    ## to JSON; the Nordlys front-end renders everything from it.
+    <script id="nordlys-data" type="application/json">$nordlys_json</script>
+    <div id="nordlys-app">
+      <noscript>
+        ## Server-rendered fallback (progressive enhancement; expanded in a
+        ## later milestone).
+        <p>$current.outTemp $current.barometer $current.windSpeed</p>
+      </noscript>
+    </div>
+    <script type="module" src="dist/nordlys.js"></script>
+  </body>
+</html>

@@ -1,0 +1,157 @@
+{
+  "meta": {
+    "version": 1,
+    "generatedAt": 1784457000,
+    "station": {
+      "name": "Aldersundet weather",
+      "location": "Aldersundet, Lurøy, Norway",
+      "latitude": 66.401,
+      "longitude": 13.121,
+      "altitude": "6 m"
+    }
+  },
+  "config": {
+    "theme": {
+      "mode": "auto"
+    },
+    "pages": [
+      {
+        "id": "today",
+        "title": "Today",
+        "layout": [
+          {
+            "title": "Now",
+            "columns": 4,
+            "tiles": [
+              {
+                "type": "gauge",
+                "obs": "outTemp",
+                "options": { "min": -20, "max": 35 }
+              },
+              {
+                "type": "gauge",
+                "obs": "barometer",
+                "options": { "min": 960, "max": 1060 }
+              },
+              {
+                "type": "gauge",
+                "obs": "windSpeed",
+                "options": { "min": 0, "max": 25 }
+              },
+              {
+                "type": "gauge",
+                "obs": "windDir",
+                "options": { "style": "compass" }
+              }
+            ]
+          },
+          {
+            "title": "Observations",
+            "columns": 4,
+            "tiles": [
+              { "type": "stat", "obs": "appTemp" },
+              { "type": "stat", "obs": "dewpoint" },
+              { "type": "stat", "obs": "outHumidity" },
+              { "type": "stat", "obs": "windGust" },
+              { "type": "stat", "obs": "rain" },
+              { "type": "stat", "obs": "rainRate" },
+              { "type": "stat", "obs": "UV" },
+              { "type": "stat", "obs": "radiation" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "current": {
+    "outTemp": {
+      "value": 13.6,
+      "unit": "°C",
+      "label": "Outside temperature",
+      "decimals": 1,
+      "min": { "value": 9.8, "time": "04:37" },
+      "max": { "value": 15.2, "time": "13:05" },
+      "trend": 0.4
+    },
+    "appTemp": {
+      "value": 12.1,
+      "unit": "°C",
+      "label": "Feels like",
+      "decimals": 1,
+      "min": { "value": 8.2, "time": "04:41" },
+      "max": { "value": 13.9, "time": "13:07" }
+    },
+    "dewpoint": {
+      "value": 10.2,
+      "unit": "°C",
+      "label": "Dew point",
+      "decimals": 1,
+      "min": { "value": 8.9, "time": "02:15" },
+      "max": { "value": 11.4, "time": "12:33" }
+    },
+    "outHumidity": {
+      "value": 79,
+      "unit": "%",
+      "label": "Humidity",
+      "decimals": 0,
+      "min": { "value": 68, "time": "13:22" },
+      "max": { "value": 93, "time": "03:50" }
+    },
+    "barometer": {
+      "value": 1012.4,
+      "unit": "hPa",
+      "label": "Barometer",
+      "decimals": 1,
+      "min": { "value": 1011.8, "time": "11:10" },
+      "max": { "value": 1016.2, "time": "00:15" },
+      "trend": -1.2
+    },
+    "windSpeed": {
+      "value": 4.2,
+      "unit": "m/s",
+      "label": "Wind speed",
+      "decimals": 1,
+      "max": { "value": 7.1, "time": "12:50" }
+    },
+    "windGust": {
+      "value": 6.4,
+      "unit": "m/s",
+      "label": "Wind gust",
+      "decimals": 1,
+      "max": { "value": 9.8, "time": "12:50" }
+    },
+    "windDir": {
+      "value": 215,
+      "unit": "°",
+      "label": "Wind direction",
+      "decimals": 0
+    },
+    "rain": {
+      "value": 1.2,
+      "unit": "mm",
+      "label": "Rain today",
+      "decimals": 1
+    },
+    "rainRate": {
+      "value": 0.0,
+      "unit": "mm/h",
+      "label": "Rain rate",
+      "decimals": 1,
+      "max": { "value": 2.4, "time": "06:12" }
+    },
+    "UV": {
+      "value": 2.4,
+      "unit": "",
+      "label": "UV index",
+      "decimals": 1,
+      "max": { "value": 3.1, "time": "12:20" }
+    },
+    "radiation": {
+      "value": 310,
+      "unit": "W/m²",
+      "label": "Solar radiation",
+      "decimals": 0,
+      "max": { "value": 542, "time": "12:35" }
+    }
+  }
+}
