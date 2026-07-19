@@ -98,7 +98,15 @@
 
   <footer>
     <span>Generated {generated}</span>
-    <span>Powered by <a href="https://weewx.com">weewx</a> · Nordlys</span>
+    <span>
+      Powered by <a href="https://weewx.com">weewx</a> ·
+      <a
+        href="https://github.com/TheEskil/weewx-nordlys"
+        title={data.meta.skinVersion
+          ? `Nordlys ${data.meta.skinVersion}`
+          : 'Nordlys'}>Nordlys</a
+      >
+    </span>
   </footer>
 </div>
 
