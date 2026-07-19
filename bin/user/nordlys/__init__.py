@@ -717,6 +717,9 @@ class NordlysSearchList(SearchList):
             extreme = self._extreme(obs, 'max', day_span, db_manager, decimals)
             if extreme:
                 entry['max'] = extreme
+            avg = self._average(obs, day_span, db_manager, decimals)
+            if avg is not None:
+                entry['avg'] = avg
 
         if obs in _TREND_OBS and trend_record and obs in trend_record:
             then = converter.convert(weewx.units.as_value_tuple(trend_record, obs))
@@ -740,6 +743,16 @@ class NordlysSearchList(SearchList):
         if time_vt[0] is not None:
             extreme['time'] = time.strftime('%H:%M', time.localtime(time_vt[0]))
         return extreme
+
+    def _average(self, obs, day_span, db_manager, decimals):
+        try:
+            value_vt = weewx.xtypes.get_aggregate(obs, day_span, 'avg', db_manager)
+        except (weewx.UnknownType, weewx.UnknownAggregation, weewx.CannotCalculate):
+            return None
+        value = self.generator.converter.convert(value_vt)
+        if value[0] is None:
+            return None
+        return self._round(value[0], decimals)
 
     # ------------------------------------------------------------------
     # chart series

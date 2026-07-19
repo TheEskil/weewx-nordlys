@@ -2,6 +2,7 @@
   import type { Observation, TileOptions } from '../lib/types'
   import { valueColor } from '../lib/color'
   import { formatObs, formatTrend, formatValue } from '../lib/format'
+  import Extremes from './Extremes.svelte'
 
   let {
     obs,
@@ -93,6 +94,7 @@
     </text>
   </svg>
   <h3>{title ?? obs.label}</h3>
+  <div class="extremes-row"><Extremes {obs} /></div>
 </article>
 
 <style>
@@ -158,5 +160,15 @@
     font-weight: 500;
     color: var(--nl-text-dim);
     margin-top: var(--nl-space-1);
+  }
+
+  .extremes-row {
+    margin-top: var(--nl-space-1);
+    font-size: var(--nl-fs-sm);
+  }
+
+  /* The min/avg/max row is centered beneath the gauge label. */
+  .extremes-row :global(.extremes) {
+    justify-content: center;
   }
 </style>

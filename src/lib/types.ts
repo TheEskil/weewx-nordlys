@@ -227,6 +227,8 @@ export interface Observation {
   decimals?: number
   min?: Extreme
   max?: Extreme
+  /** period average (report-time; not extended by live updates) */
+  avg?: number
   /** change over the trend window, in the observation's unit */
   trend?: number | null
 }

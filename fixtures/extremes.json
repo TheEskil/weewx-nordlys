@@ -73,6 +73,7 @@
       "unit": "°C",
       "label": "Outside temperature",
       "decimals": 1,
+      "avg": -7.6,
       "min": { "value": -11.2, "time": "05:20" },
       "max": { "value": -4.1, "time": "13:10" },
       "trend": -1.8
@@ -82,6 +83,7 @@
       "unit": "°C",
       "label": "Feels like",
       "decimals": 1,
+      "avg": -14.2,
       "min": { "value": -18.9, "time": "06:45" },
       "max": { "value": -9.6, "time": "13:20" }
     },
@@ -90,6 +92,7 @@
       "unit": "°C",
       "label": "Dew point",
       "decimals": 1,
+      "avg": -9.8,
       "min": { "value": -13.5, "time": "04:10" },
       "max": { "value": -6.2, "time": "12:55" }
     },
@@ -98,6 +101,7 @@
       "unit": "%",
       "label": "Humidity",
       "decimals": 0,
+      "avg": 89,
       "min": { "value": 81, "time": "13:35" },
       "max": { "value": 97, "time": "02:20" }
     },
@@ -106,6 +110,7 @@
       "unit": "hPa",
       "label": "Barometer",
       "decimals": 1,
+      "avg": 986.4,
       "min": { "value": 978.2, "time": "15:40" },
       "max": { "value": 994.6, "time": "00:05" },
       "trend": -3.2
@@ -115,6 +120,7 @@
       "unit": "m/s",
       "label": "Wind speed",
       "decimals": 1,
+      "avg": 11.9,
       "max": { "value": 21.7, "time": "14:50" }
     },
     "windGust": {
@@ -122,6 +128,7 @@
       "unit": "m/s",
       "label": "Wind gust",
       "decimals": 1,
+      "avg": 16.1,
       "max": { "value": 29.3, "time": "14:50" }
     },
     "windDir": {
@@ -141,6 +148,7 @@
       "unit": "mm/h",
       "label": "Rain rate",
       "decimals": 1,
+      "avg": 3.7,
       "max": { "value": 6.8, "time": "11:05" }
     },
     "UV": {
@@ -148,6 +156,7 @@
       "unit": "",
       "label": "UV index",
       "decimals": 1,
+      "avg": 3.7,
       "max": { "value": 6.8, "time": "12:30" }
     },
     "radiation": {
@@ -155,6 +164,7 @@
       "unit": "W/m²",
       "label": "Solar radiation",
       "decimals": 0,
+      "avg": 36,
       "max": { "value": 65, "time": "12:10" }
     }
   }
