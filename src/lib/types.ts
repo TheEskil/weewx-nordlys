@@ -28,11 +28,14 @@ export interface NordlysPayload {
 }
 
 export interface PeriodInfo {
-  kind: 'month' | 'year'
+  kind: 'week' | 'month' | 'year'
+  /** matches the archives-index id for the picker's current selection */
+  id: string
   label: string
 }
 
 export interface ArchivesIndex {
+  weeks: ArchiveLink[]
   months: ArchiveLink[]
   years: ArchiveLink[]
 }
@@ -46,8 +49,8 @@ export interface ArchiveLink {
   year?: string
   /** archive page filename */
   page: string
-  /** NOAA text report path */
-  noaa: string
+  /** NOAA text report path; months/years only */
+  noaa?: string
 }
 
 export interface StatsEntry {
@@ -164,6 +167,8 @@ export interface PageConfig {
   id: string
   title: string
   layout: RowConfig[]
+  /** a period picker jumps to per-week/month/year archive pages */
+  picker?: 'week' | 'month' | 'year'
 }
 
 export interface RowConfig {

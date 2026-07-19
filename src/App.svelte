@@ -12,11 +12,32 @@
   const data = $state(payload)
   let liveStatus: LiveStatus = $state('off')
 
+  // Tabs are addressable via #<page-id> so archive "‹ Current" links can
+  // return to a specific tab and tabs are bookmarkable/shareable.
+  function pageFromHash(): string | undefined {
+    const id = location.hash.replace(/^#/, '')
+    return payload.config.pages.some((p) => p.id === id) ? id : undefined
+  }
+
   // svelte-ignore state_referenced_locally
-  let activePageId = $state(payload.config.pages[0]?.id)
+  let activePageId = $state(pageFromHash() ?? payload.config.pages[0]?.id)
   const activePage = $derived(
     data.config.pages.find((p) => p.id === activePageId),
   )
+
+  function navigate(id: string) {
+    activePageId = id
+    if (location.hash.replace(/^#/, '') !== id) location.hash = id
+  }
+
+  $effect(() => {
+    const onHash = () => {
+      const id = pageFromHash()
+      if (id) activePageId = id
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  })
   const generated = $derived(
     new Date(data.meta.generatedAt * 1000).toLocaleString(undefined, {
       dateStyle: 'medium',
@@ -61,7 +82,7 @@
     active={activePageId}
     live={liveStatus}
     period={data.period}
-    onNavigate={(id) => (activePageId = id)}
+    onNavigate={navigate}
   />
 
   <main>

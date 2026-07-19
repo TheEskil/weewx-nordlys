@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NordlysPayload, PageConfig } from '../lib/types'
   import Tile from './Tile.svelte'
+  import PeriodPicker from './PeriodPicker.svelte'
 
   let {
     page,
@@ -9,12 +10,18 @@
     page: PageConfig
     payload: NordlysPayload
   } = $props()
+
+  // A period picker rides on the first row, opposite its title.
+  const showPicker = $derived(Boolean(page.picker || payload.period))
 </script>
 
 {#each page.layout as row, i (i)}
   <section>
-    {#if row.title}
-      <h2>{row.title}</h2>
+    {#if row.title || (i === 0 && showPicker)}
+      <div class="head">
+        {#if row.title}<h2>{row.title}</h2>{/if}
+        {#if i === 0 && showPicker}<PeriodPicker {page} {payload} />{/if}
+      </div>
     {/if}
     <div class="grid" style:--row-cols={row.columns ?? 4}>
       {#each row.tiles as tile, j (j)}
@@ -29,13 +36,25 @@
     margin-top: var(--nl-space-4);
   }
 
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--nl-space-2);
+    margin-bottom: var(--nl-space-2);
+    min-height: 1.6rem;
+  }
+
   h2 {
     font-size: var(--nl-fs-sm);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--nl-text-dim);
-    margin-bottom: var(--nl-space-2);
+  }
+
+  .head :global(.picker) {
+    margin-left: auto;
   }
 
   .grid {
