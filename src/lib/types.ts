@@ -13,6 +13,64 @@ export interface NordlysPayload {
   series?: Record<string, Record<string, SeriesEntry>>
   /** span -> wind-rose distribution */
   windrose?: Record<string, WindRoseData>
+  /** span ('week' | 'month' | 'year' | 'alltime') -> obs -> aggregates */
+  stats?: Record<string, Record<string, StatsEntry>>
+  climatology?: Climatology | null
+  almanac?: AlmanacData | null
+  forecast?: ForecastData | null
+}
+
+export interface StatsEntry {
+  label: string
+  unit: string
+  decimals: number
+  min?: Extreme
+  max?: Extreme
+  avg?: number
+  /** present for sum observations (rain); max is then the wettest day */
+  sum?: number
+}
+
+export interface Climatology {
+  days?: ClimoDay[]
+  calendar?: CalendarData
+}
+
+export interface ClimoDay {
+  id: string
+  label: string
+  count: number
+  obs: string
+  aggregate: string
+  op: string
+  value: number
+  unit: string
+}
+
+export interface CalendarData {
+  obs: string
+  label: string
+  aggregate: string
+  unit: string
+  /** [day-start unix seconds, value|null], oldest first */
+  days: [number, number | null][]
+}
+
+export interface AlmanacData {
+  sunrise: string | null
+  sunset: string | null
+  day_length?: string
+  /** polar latitudes: the sun never sets / never rises today */
+  always_up?: boolean
+  always_down?: boolean
+  moon_phase: string
+  moon_fullness: number
+}
+
+export interface ForecastData {
+  code: string
+  text: string
+  trend: 'rising' | 'steady' | 'falling'
 }
 
 export interface SeriesEntry {
@@ -85,7 +143,15 @@ export interface RowConfig {
   tiles: TileConfig[]
 }
 
-export type TileType = 'gauge' | 'stat' | 'chart' | 'table' | 'text'
+export type TileType =
+  | 'gauge'
+  | 'stat'
+  | 'chart'
+  | 'table'
+  | 'text'
+  | 'climatology'
+  | 'celestial'
+  | 'forecast'
 
 export interface TileConfig {
   type: TileType
@@ -114,6 +180,10 @@ export interface TileOptions {
   bands?: number[]
   /** wind-rose calm threshold (report units) */
   calm_below?: number
+  /** table kind: stats (default) | records */
+  table?: string
+  /** calendar chart daily aggregate: avg (default) | min | max | sum */
+  aggregate?: string
   [key: string]: unknown
 }
 

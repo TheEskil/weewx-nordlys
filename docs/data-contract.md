@@ -98,6 +98,47 @@ and the front-end fetches it.
       "sectors": [[…], …]    // 16 sectors (N first, clockwise), each
                              // bands+1 percentages of all samples
     }
+  },
+
+  "stats": {                 // per span/obs referenced by stats-table tiles;
+    "week": {                // spans are calendar-bound (like $week/$month/
+                             // $year) plus "alltime"
+      "outTemp": {
+        "label": "…", "unit": "°C", "decimals": 1,
+        "min": { "value": 10.2, "time": "Sun 02:10" },
+        "avg": 13.2,
+        "max": { "value": 17.0, "time": "Sun 14:55" }
+        // sum observations (rain) instead carry:
+        // "sum": 12.4, "max": {…}   (the wettest day)
+      }
+    }
+  },
+
+  "climatology": {           // present when a climatology/calendar tile exists
+    "days": [                // from [Nordlys][[climatological_days]]
+      { "id": "frost_days", "label": "Frost days", "count": 12,
+        "obs": "outTemp", "aggregate": "min", "op": "<", "value": 0,
+        "unit": "°C" }
+    ],
+    "calendar": {            // from a chart=calendar tile; rolling year
+      "obs": "outTemp", "label": "…", "aggregate": "avg", "unit": "°C",
+      "days": [[1784412000, 13.2], …]   // [day start unix s, value|null]
+    }
+  },
+
+  "almanac": {               // present when a celestial tile exists
+    "sunrise": "02:49", "sunset": "23:33", "day_length": "20:44",
+    // at polar latitudes rise/set may be null; then one of:
+    "always_up": true,       // midnight sun
+    "always_down": false,    // polar night
+    "moon_phase": "waxing crescent (increasing to full)",
+    "moon_fullness": 31      // percent illuminated
+  },
+
+  "forecast": {              // present when a forecast tile exists
+    "code": "B",             // Zambretti letter
+    "text": "Fine weather",
+    "trend": "steady"        // barometer over 3 h: rising|steady|falling
   }
 }
 ```
@@ -145,7 +186,17 @@ and the front-end fetches it.
 `meta.version` is bumped only for breaking shape changes. Additive fields
 are allowed within a version; the front-end must tolerate unknown fields.
 
+- **Tables**: `table = stats` tiles read from `stats`; `table = records`
+  tiles render straight from `series` (their obs are included in the
+  series needs), joined on the first column's timestamps, sorted and
+  paginated client-side.
+- **Climatological days**: each definition in
+  `[Nordlys][[climatological_days]]` counts days in the span whose daily
+  aggregate (`min|max|avg|sum`, from the weewx daily summaries) compares
+  true (`op`, exclusive `<`/`>` or inclusive variants) against `value`
+  in report units.
+
 ## Planned (not yet in v1)
 
-`stats` (aggregate tables), `climatology`, `almanac`, `forecast` -
-added as milestone 5 lands, with this document updated in lockstep.
+Per-period archive pages (SummaryBy*), NOAA text reports, PWA - later
+milestones, with this document updated in lockstep.

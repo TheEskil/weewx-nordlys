@@ -22,9 +22,11 @@ from nordlys import (  # noqa: E402
     _coerce,
     _collect_chart_needs,
     _collect_obs,
+    _collect_stats_needs,
     _page_config,
     _theme_config,
     _tile_config,
+    zambretti,
 )
 
 
@@ -185,12 +187,13 @@ class TestCollectChartNeeds(unittest.TestCase):
                 ]
             }
         ]
-        series, rose = _collect_chart_needs(pages)
+        series, rose, calendar = _collect_chart_needs(pages)
         self.assertEqual(
             series, {'day': ['outTemp', 'dewpoint'], 'week': ['outTemp']}
         )
         self.assertEqual(list(rose), ['day'])
         self.assertEqual(rose['day']['bands'], [2, 4])
+        self.assertEqual(calendar, [])
 
     def test_unknown_span_ignored(self):
         pages = [
@@ -208,7 +211,78 @@ class TestCollectChartNeeds(unittest.TestCase):
                 ]
             }
         ]
-        self.assertEqual(_collect_chart_needs(pages), ({}, {}))
+        self.assertEqual(_collect_chart_needs(pages), ({}, {}, []))
+
+
+class TestCollectStatsNeeds(unittest.TestCase):
+    def test_stats_tables_by_span(self):
+        pages = [
+            {
+                'layout': [
+                    {
+                        'tiles': [
+                            {
+                                'type': 'table',
+                                'obs': ['outTemp', 'rain'],
+                                'options': {'table': 'stats', 'span': 'week'},
+                            },
+                            {
+                                'type': 'table',
+                                'obs': ['outTemp'],
+                                'options': {'table': 'records', 'span': 'day'},
+                            },
+                            {'type': 'stat', 'obs': 'UV'},
+                        ]
+                    }
+                ]
+            }
+        ]
+        self.assertEqual(
+            _collect_stats_needs(pages), {'week': ['outTemp', 'rain']}
+        )
+
+    def test_records_tables_feed_series_needs(self):
+        pages = [
+            {
+                'layout': [
+                    {
+                        'tiles': [
+                            {
+                                'type': 'table',
+                                'obs': ['outTemp', 'windDir'],
+                                'options': {'table': 'records', 'span': 'day'},
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+        series, rose, calendar = _collect_chart_needs(pages)
+        self.assertEqual(series, {'day': ['outTemp', 'windDir']})
+        self.assertEqual(rose, {})
+        self.assertEqual(calendar, [])
+
+
+class TestZambretti(unittest.TestCase):
+    def test_high_steady_pressure_is_settled(self):
+        result = zambretti(1035.0, 0.2)
+        self.assertEqual(result['trend'], 'steady')
+        self.assertEqual(result['code'], 'A')
+
+    def test_low_falling_pressure_is_stormy(self):
+        result = zambretti(950.0, -3.0)
+        self.assertEqual(result['trend'], 'falling')
+        self.assertEqual(result['text'], 'Stormy, much rain')
+
+    def test_trend_threshold(self):
+        self.assertEqual(zambretti(1010.0, 1.0)['trend'], 'steady')
+        self.assertEqual(zambretti(1010.0, 2.0)['trend'], 'rising')
+        self.assertEqual(zambretti(1010.0, -2.0)['trend'], 'falling')
+
+    def test_out_of_range_pressure_is_clamped(self):
+        self.assertIsNotNone(zambretti(900.0, 0.0))
+        self.assertIsNotNone(zambretti(1080.0, 0.0))
+        self.assertIsNone(zambretti(None, 0.0))
 
 
 if __name__ == '__main__':

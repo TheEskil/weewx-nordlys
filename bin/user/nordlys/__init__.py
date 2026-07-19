@@ -11,9 +11,17 @@ import re
 import time
 from bisect import bisect_right
 
+import weewx.almanac
 import weewx.units
 import weewx.xtypes
-from weeutil.weeutil import TimeSpan, archiveDaySpan
+from weeutil.weeutil import (
+    TimeSpan,
+    archiveDaySpan,
+    archiveMonthSpan,
+    archiveWeekSpan,
+    archiveYearSpan,
+    startOfDay,
+)
 from weewx.cheetahgenerator import SearchList
 
 CONTRACT_VERSION = 1
@@ -54,6 +62,48 @@ _SUM_OBS = {'rain'}
 # band is open-ended. Overridable per tile in skin.conf.
 _ROSE_BANDS = [2, 4, 6, 9, 12]
 _ROSE_CALM_BELOW = 0.5
+
+# Stats tables use calendar-bound spans (like weewx $week/$month/$year).
+_STATS_SPANS = {
+    'week': archiveWeekSpan,
+    'month': archiveMonthSpan,
+    'year': archiveYearSpan,
+}
+# strftime formats for extreme times per stats span.
+_STATS_TIME_FORMAT = {
+    'week': '%a %H:%M',
+    'month': '%d %b',
+    'year': '%d %b',
+    'alltime': '%d %b %Y',
+}
+
+# Zambretti forecaster (public-domain 1915 device mapping). The pressure
+# range 947-1050 hPa is normalized to an index into the trend tables.
+_ZAMBRETTI_TEXT = [
+    'Settled fine', 'Fine weather', 'Becoming fine',
+    'Fine, becoming less settled', 'Fine, possible showers',
+    'Fairly fine, improving', 'Fairly fine, possible showers early',
+    'Fairly fine, showery later', 'Showery early, improving',
+    'Changeable, mending', 'Fairly fine, showers likely',
+    'Rather unsettled, clearing later', 'Unsettled, probably improving',
+    'Showery, bright intervals', 'Showery, becoming less settled',
+    'Changeable, some rain', 'Unsettled, short fine intervals',
+    'Unsettled, rain later', 'Unsettled, some rain',
+    'Mostly very unsettled', 'Occasional rain, worsening',
+    'Rain at times, very unsettled', 'Rain at frequent intervals',
+    'Rain, very unsettled', 'Stormy, may improve', 'Stormy, much rain',
+]
+_ZAMBRETTI_RISING = [
+    25, 25, 25, 24, 24, 19, 16, 12, 11, 9, 8, 6, 5, 2, 1, 1, 0, 0, 0, 0, 0, 0,
+]
+_ZAMBRETTI_STEADY = [
+    25, 25, 25, 25, 25, 25, 23, 23, 22, 18, 15, 13, 10, 4, 1, 1, 0, 0, 0, 0, 0, 0,
+]
+_ZAMBRETTI_FALLING = [
+    25, 25, 25, 25, 25, 25, 25, 25, 23, 23, 21, 20, 17, 14, 7, 3, 1, 1, 1, 0, 0, 0,
+]
+# Trend threshold in hPa over three hours.
+_ZAMBRETTI_TREND_HPA = 1.6
 
 
 def _coerce(value):
@@ -152,27 +202,81 @@ def _collect_obs(pages):
 
 
 def _collect_chart_needs(pages):
-    """(series needs, wind-rose needs) referenced by chart tiles.
+    """(series, wind-rose, calendar) needs referenced by tiles.
 
-    Returns ({span: [obs, ...]}, {span: options}).
+    Series: {span: [obs, ...]} - from chart tiles and records tables
+    (which render straight from series data).
+    Wind rose: {span: options}. Calendar: [options, ...].
     """
     series_needs = {}
     rose_needs = {}
+    calendar_needs = []
     for tile in _tiles(pages):
-        if tile.get('type') != 'chart':
-            continue
         options = tile.get('options', {})
+        tile_type = tile.get('type')
+        is_records_table = (
+            tile_type == 'table' and options.get('table') == 'records'
+        )
+        if tile_type != 'chart' and not is_records_table:
+            continue
+        chart = options.get('chart')
+        if chart == 'calendar':
+            calendar_needs.append({**options, 'obs': _obs_list(tile)[0:1]})
+            continue
         span = options.get('span', 'day')
         if span not in _SPAN_SECONDS:
             continue
-        if options.get('chart') == 'windrose':
+        if chart == 'windrose':
             rose_needs.setdefault(span, options)
         else:
             span_obs = series_needs.setdefault(span, [])
             for obs in _obs_list(tile):
                 if obs not in span_obs:
                     span_obs.append(obs)
-    return series_needs, rose_needs
+    return series_needs, rose_needs, calendar_needs
+
+
+def _collect_stats_needs(pages):
+    """{span: [obs, ...]} referenced by stats-table tiles."""
+    needs = {}
+    for tile in _tiles(pages):
+        if tile.get('type') != 'table':
+            continue
+        options = tile.get('options', {})
+        if options.get('table', 'stats') != 'stats':
+            continue
+        span = options.get('span', 'month')
+        if span not in _STATS_SPANS and span != 'alltime':
+            continue
+        span_obs = needs.setdefault(span, [])
+        for obs in _obs_list(tile):
+            if obs not in span_obs:
+                span_obs.append(obs)
+    return needs
+
+
+def _collect_tile_types(pages):
+    return {tile.get('type') for tile in _tiles(pages)}
+
+
+def zambretti(pressure_hpa, trend_hpa):
+    """Zambretti forecast from sea-level pressure and its 3-hour change."""
+    if pressure_hpa is None:
+        return None
+    index = int((pressure_hpa - 947.0) / 103.0 * 22)
+    index = max(0, min(21, index))
+    if trend_hpa is not None and trend_hpa >= _ZAMBRETTI_TREND_HPA:
+        table, trend = _ZAMBRETTI_RISING, 'rising'
+    elif trend_hpa is not None and trend_hpa <= -_ZAMBRETTI_TREND_HPA:
+        table, trend = _ZAMBRETTI_FALLING, 'falling'
+    else:
+        table, trend = _ZAMBRETTI_STEADY, 'steady'
+    entry = table[index]
+    return {
+        'code': chr(ord('A') + entry),
+        'text': _ZAMBRETTI_TEXT[entry],
+        'trend': trend,
+    }
 
 
 class NordlysSearchList(SearchList):
@@ -198,10 +302,22 @@ class NordlysSearchList(SearchList):
             if live.get('broker'):
                 config['live'] = live
 
-        current = self._current_data(config['pages'], db_lookup)
-        series_needs, rose_needs = _collect_chart_needs(config['pages'])
+        pages = config['pages']
+        tile_types = _collect_tile_types(pages)
+        current = self._current_data(pages, db_lookup)
+        series_needs, rose_needs, calendar_needs = _collect_chart_needs(pages)
         series = self._series_data(series_needs, db_lookup)
         windrose = self._windrose_data(rose_needs, db_lookup)
+        stats = self._stats_data(_collect_stats_needs(pages), db_lookup)
+        climatology = self._climatology_data(
+            nordlys_dict, tile_types, calendar_needs, db_lookup
+        )
+        almanac = (
+            self._almanac_data(db_lookup) if 'celestial' in tile_types else None
+        )
+        forecast = (
+            self._forecast_data(db_lookup) if 'forecast' in tile_types else None
+        )
         payload = {
             'meta': {
                 'version': CONTRACT_VERSION,
@@ -218,6 +334,10 @@ class NordlysSearchList(SearchList):
             'current': current,
             'series': series,
             'windrose': windrose,
+            'stats': stats,
+            'climatology': climatology,
+            'almanac': almanac,
+            'forecast': forecast,
         }
 
         # Escape "</" so the payload is safe inside a <script> element.
@@ -349,8 +469,10 @@ class NordlysSearchList(SearchList):
         aggregate = None
         interval = _SPAN_AGG_INTERVAL[span]
         if obs in _SUM_OBS:
-            # Rain is summed into buckets even on the raw span.
-            aggregate, interval = 'sum', interval or 3600
+            # Rain is summed into buckets: hourly on the day span,
+            # daily beyond.
+            aggregate = 'sum'
+            interval = 3600 if span == 'day' else 86400
         elif interval:
             aggregate = 'avg'
 
@@ -378,6 +500,316 @@ class NordlysSearchList(SearchList):
         if aggregate:
             entry['aggregate'] = aggregate
         return entry
+
+    # ------------------------------------------------------------------
+    # stats tables
+
+    def _stats_data(self, stats_needs, db_lookup):
+        if not stats_needs:
+            return {}
+        db_manager = db_lookup()
+        last_ts = db_manager.lastGoodStamp()
+        if not last_ts:
+            return {}
+        labels = self.generator.skin_dict.get('Labels', {}).get('Generic', {})
+
+        result = {}
+        for span, obs_keys in stats_needs.items():
+            if span == 'alltime':
+                first_ts = db_manager.firstGoodStamp()
+                if not first_ts:
+                    continue
+                timespan = TimeSpan(startOfDay(first_ts), last_ts)
+            else:
+                timespan = _STATS_SPANS[span](last_ts)
+            span_data = {}
+            for obs in obs_keys:
+                try:
+                    entry = self._stats_entry(
+                        obs, span, timespan, db_manager, labels
+                    )
+                except (
+                    weewx.UnknownType,
+                    weewx.UnknownAggregation,
+                    weewx.CannotCalculate,
+                ):
+                    continue
+                if entry:
+                    span_data[obs] = entry
+            if span_data:
+                result[span] = span_data
+        return result
+
+    def _stats_entry(self, obs, span, timespan, db_manager, labels):
+        converter = self.generator.converter
+        formatter = self.generator.formatter
+        time_format = _STATS_TIME_FORMAT[span]
+
+        def aggregate(kind):
+            return converter.convert(
+                weewx.xtypes.get_aggregate(obs, timespan, kind, db_manager)
+            )
+
+        def extreme(kind, time_kind):
+            value = aggregate(kind)
+            if value[0] is None:
+                return None, value[1]
+            when = weewx.xtypes.get_aggregate(
+                obs, timespan, time_kind, db_manager
+            )
+            result = {'value': self._round(value[0], decimals)}
+            if when[0] is not None:
+                result['time'] = time.strftime(
+                    time_format, time.localtime(when[0])
+                )
+            return result, value[1]
+
+        # Probe the unit/decimals from an aggregate that exists for the obs.
+        probe = aggregate('sum' if obs in _SUM_OBS else 'min')
+        decimals = self._decimals(formatter, probe[1])
+        entry = {
+            'label': labels.get(obs, obs),
+            'unit': (
+                formatter.get_label_string(probe[1], plural=False) or ''
+            ).strip(),
+            'decimals': decimals,
+        }
+
+        if obs in _SUM_OBS:
+            entry['sum'] = self._round(probe[0], decimals)
+            # Wettest day of the span.
+            max_entry, _ = extreme('maxsum', 'maxsumtime')
+            if max_entry:
+                entry['max'] = max_entry
+        else:
+            min_entry, _ = extreme('min', 'mintime')
+            max_entry, _ = extreme('max', 'maxtime')
+            avg = aggregate('avg')
+            if min_entry:
+                entry['min'] = min_entry
+            if max_entry:
+                entry['max'] = max_entry
+            if avg[0] is not None:
+                entry['avg'] = self._round(avg[0], decimals)
+        return entry
+
+    # ------------------------------------------------------------------
+    # climatology
+
+    def _climatology_data(self, nordlys_dict, tile_types, calendar_needs, db_lookup):
+        wants_days = 'climatology' in tile_types and 'climatological_days' in getattr(
+            nordlys_dict, 'sections', []
+        )
+        if not wants_days and not calendar_needs:
+            return None
+        db_manager = db_lookup()
+        last_ts = db_manager.lastGoodStamp()
+        if not last_ts:
+            return None
+
+        climatology = {}
+        if wants_days:
+            section = nordlys_dict['climatological_days']
+            span = section.get('span', 'year')
+            if span == 'year':
+                timespan = archiveYearSpan(last_ts)
+            else:
+                timespan = TimeSpan(last_ts - _SPAN_SECONDS.get(span, 31536000), last_ts)
+            days = []
+            for def_id in section.sections:
+                definition = _section_items(section[def_id])
+                entry = self._climo_day_count(
+                    def_id, definition, timespan, db_manager
+                )
+                if entry:
+                    days.append(entry)
+            if days:
+                climatology['days'] = days
+
+        for options in calendar_needs:
+            obs_list = options.get('obs') or ['outTemp']
+            entry = self._calendar(obs_list[0], options, last_ts, db_manager)
+            if entry:
+                climatology['calendar'] = entry
+                break  # one calendar per payload for now
+
+        return climatology or None
+
+    _OPS = {
+        '<': lambda a, b: a < b,
+        '<=': lambda a, b: a <= b,
+        '>': lambda a, b: a > b,
+        '>=': lambda a, b: a >= b,
+    }
+
+    def _daily_rows(self, obs, timespan, db_manager):
+        """(day start, min, max, sum, count) rows from the daily summaries."""
+        sql = (
+            f'SELECT dateTime, min, max, sum, count FROM archive_day_{obs} '
+            'WHERE dateTime >= ? AND dateTime < ?'
+        )
+        return db_manager.genSql(sql, (timespan.start, timespan.stop))
+
+    def _daily_value(self, row, aggregate):
+        _, minimum, maximum, total, count = row
+        if aggregate == 'min':
+            return minimum
+        if aggregate == 'max':
+            return maximum
+        if aggregate == 'sum':
+            return total
+        if aggregate == 'avg':
+            return total / count if total is not None and count else None
+        return None
+
+    def _convert_db_value(self, value, obs, db_manager):
+        if value is None:
+            return None
+        unit, group = weewx.units.getStandardUnitType(
+            db_manager.std_unit_system, obs
+        )
+        return self.generator.converter.convert(
+            weewx.units.ValueTuple(value, unit, group)
+        )[0]
+
+    def _climo_day_count(self, def_id, definition, timespan, db_manager):
+        obs = definition.get('obs')
+        op = self._OPS.get(definition.get('op'))
+        threshold = definition.get('value')
+        aggregate = definition.get('aggregate', 'max')
+        if not obs or op is None or threshold is None:
+            return None
+
+        count = 0
+        try:
+            for row in self._daily_rows(obs, timespan, db_manager):
+                value = self._convert_db_value(
+                    self._daily_value(row, aggregate), obs, db_manager
+                )
+                if value is not None and op(value, threshold):
+                    count += 1
+        except Exception:
+            return None
+
+        unit, _ = weewx.units.getStandardUnitType(
+            db_manager.std_unit_system, obs
+        )
+        target_unit = self.generator.converter.convert(
+            weewx.units.ValueTuple(0.0, unit, weewx.units.obs_group_dict.get(obs))
+        )[1]
+        return {
+            'id': def_id,
+            'label': definition.get('label', def_id),
+            'count': count,
+            'obs': obs,
+            'aggregate': aggregate,
+            'op': definition.get('op'),
+            'value': threshold,
+            'unit': (
+                self.generator.formatter.get_label_string(
+                    target_unit, plural=False
+                )
+                or ''
+            ).strip(),
+        }
+
+    def _calendar(self, obs, options, last_ts, db_manager):
+        aggregate = options.get('aggregate', 'avg')
+        timespan = TimeSpan(
+            startOfDay(last_ts - 365 * 86400), last_ts
+        )
+        labels = self.generator.skin_dict.get('Labels', {}).get('Generic', {})
+
+        days = []
+        try:
+            for row in self._daily_rows(obs, timespan, db_manager):
+                value = self._convert_db_value(
+                    self._daily_value(row, aggregate), obs, db_manager
+                )
+                days.append([row[0], self._round(value, 1)])
+        except Exception:
+            return None
+        if not days:
+            return None
+
+        unit, _ = weewx.units.getStandardUnitType(
+            db_manager.std_unit_system, obs
+        )
+        target_unit = self.generator.converter.convert(
+            weewx.units.ValueTuple(0.0, unit, weewx.units.obs_group_dict.get(obs))
+        )[1]
+        return {
+            'obs': obs,
+            'label': labels.get(obs, obs),
+            'aggregate': aggregate,
+            'unit': (
+                self.generator.formatter.get_label_string(
+                    target_unit, plural=False
+                )
+                or ''
+            ).strip(),
+            'days': days,
+        }
+
+    # ------------------------------------------------------------------
+    # almanac & forecast
+
+    def _almanac_data(self, db_lookup):
+        db_manager = db_lookup()
+        last_ts = db_manager.lastGoodStamp() or int(time.time())
+        stn = self.generator.stn_info
+        try:
+            almanac = weewx.almanac.Almanac(
+                last_ts, stn.latitude_f, stn.longitude_f
+            )
+            sunrise = almanac.sunrise.raw
+            sunset = almanac.sunset.raw
+            entry = {
+                'sunrise': self._clock(sunrise),
+                'sunset': self._clock(sunset),
+                'moon_phase': almanac.moon_phase,
+                'moon_fullness': almanac.moon_fullness,
+            }
+        except Exception:
+            return None
+        if sunrise and sunset and sunset > sunrise:
+            length = int(sunset - sunrise)
+            entry['day_length'] = f'{length // 3600}:{length % 3600 // 60:02d}'
+        elif not sunrise or not sunset:
+            # Polar latitudes: no rise/set today. Northern-hemisphere
+            # summer (Apr-Sep) means midnight sun, winter means polar
+            # night; flipped south of the equator.
+            month = time.localtime(last_ts).tm_mon
+            summer = 4 <= month <= 9
+            north = stn.latitude_f >= 0
+            entry['always_up'] = summer == north
+            entry['always_down'] = not entry['always_up']
+        return entry
+
+    @staticmethod
+    def _clock(ts):
+        return time.strftime('%H:%M', time.localtime(ts)) if ts else None
+
+    def _forecast_data(self, db_lookup):
+        db_manager = db_lookup()
+        last_ts = db_manager.lastGoodStamp()
+        if not last_ts:
+            return None
+        record = db_manager.getRecord(last_ts)
+        if not record or 'barometer' not in record:
+            return None
+        pressure = weewx.units.convert(
+            weewx.units.as_value_tuple(record, 'barometer'), 'mbar'
+        )[0]
+        trend = None
+        earlier = db_manager.getRecord(last_ts - _TREND_SECONDS, max_delta=1800)
+        if earlier and earlier.get('barometer') is not None:
+            then = weewx.units.convert(
+                weewx.units.as_value_tuple(earlier, 'barometer'), 'mbar'
+            )[0]
+            if then is not None and pressure is not None:
+                trend = pressure - then
+        return zambretti(pressure, trend)
 
     # ------------------------------------------------------------------
     # wind rose

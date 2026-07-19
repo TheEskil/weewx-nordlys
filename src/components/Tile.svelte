@@ -5,6 +5,12 @@
   import CompassGauge from './CompassGauge.svelte'
   import Chart from './Chart.svelte'
   import WindRose from './WindRose.svelte'
+  import Calendar from './Calendar.svelte'
+  import StatsTable from './StatsTable.svelte'
+  import RecordsTable from './RecordsTable.svelte'
+  import Climatology from './Climatology.svelte'
+  import Almanac from './Almanac.svelte'
+  import Forecast from './Forecast.svelte'
 
   let { tile, payload }: { tile: TileConfig; payload: NordlysPayload } =
     $props()
@@ -26,9 +32,23 @@
   {:else if tile.type === 'chart'}
     {#if tile.options?.chart === 'windrose'}
       <WindRose {tile} {payload} />
+    {:else if tile.options?.chart === 'calendar'}
+      <Calendar {payload} />
     {:else}
       <Chart {tile} {payload} />
     {/if}
+  {:else if tile.type === 'table'}
+    {#if tile.options?.table === 'records'}
+      <RecordsTable {tile} {payload} />
+    {:else}
+      <StatsTable {tile} {payload} />
+    {/if}
+  {:else if tile.type === 'climatology'}
+    <Climatology {payload} />
+  {:else if tile.type === 'celestial'}
+    <Almanac {tile} {payload} />
+  {:else if tile.type === 'forecast'}
+    <Forecast {tile} {payload} />
   {:else if tile.type === 'text'}
     <p class="text">{tile.title ?? ''}</p>
   {:else}

@@ -145,6 +145,19 @@
             ]
           },
           {
+            "columns": 2,
+            "tiles": [
+              {
+                "type": "celestial",
+                "title": "Sun & moon"
+              },
+              {
+                "type": "forecast",
+                "title": "Forecast"
+              }
+            ]
+          },
+          {
             "title": "Observations",
             "columns": 4,
             "tiles": [
@@ -182,6 +195,46 @@
               {
                 "type": "stat",
                 "obs": "radiation"
+              }
+            ]
+          },
+          {
+            "title": "Archive data (24 h)",
+            "columns": 1,
+            "tiles": [
+              {
+                "type": "table",
+                "obs": [
+                  "outTemp",
+                  "outHumidity",
+                  "barometer",
+                  "windSpeed",
+                  "windDir"
+                ],
+                "options": {
+                  "table": "records",
+                  "span": "day"
+                }
+              }
+            ]
+          },
+          {
+            "title": "This week",
+            "columns": 1,
+            "tiles": [
+              {
+                "type": "table",
+                "obs": [
+                  "outTemp",
+                  "outHumidity",
+                  "barometer",
+                  "windSpeed",
+                  "rain"
+                ],
+                "options": {
+                  "table": "stats",
+                  "span": "week"
+                }
               }
             ]
           }
@@ -11007,5 +11060,87 @@
         ]
       ]
     }
+  },
+  "stats": {
+    "week": {
+      "outTemp": {
+        "label": "Outside temperature",
+        "unit": "°C",
+        "decimals": 1,
+        "min": {
+          "value": 8.1,
+          "time": "Tue 04:20"
+        },
+        "avg": 12.9,
+        "max": {
+          "value": 17.4,
+          "time": "Thu 14:35"
+        }
+      },
+      "outHumidity": {
+        "label": "Humidity",
+        "unit": "%",
+        "decimals": 0,
+        "min": {
+          "value": 58,
+          "time": "Thu 15:10"
+        },
+        "avg": 78,
+        "max": {
+          "value": 96,
+          "time": "Mon 03:45"
+        }
+      },
+      "barometer": {
+        "label": "Barometer",
+        "unit": "hPa",
+        "decimals": 1,
+        "min": {
+          "value": 1004.8,
+          "time": "Wed 18:20"
+        },
+        "avg": 1011.6,
+        "max": {
+          "value": 1019.3,
+          "time": "Sat 09:00"
+        }
+      },
+      "windSpeed": {
+        "label": "Wind speed",
+        "unit": "m/s",
+        "decimals": 1,
+        "min": {
+          "value": 0.2,
+          "time": "Mon 02:10"
+        },
+        "avg": 4.1,
+        "max": {
+          "value": 11.8,
+          "time": "Fri 13:40"
+        }
+      },
+      "rain": {
+        "label": "Rain",
+        "unit": "mm",
+        "decimals": 1,
+        "sum": 12.4,
+        "max": {
+          "value": 6.8,
+          "time": "Wed"
+        }
+      }
+    }
+  },
+  "almanac": {
+    "sunrise": "03:02",
+    "sunset": "23:18",
+    "day_length": "20:16",
+    "moon_phase": "waxing gibbous (increasing to full)",
+    "moon_fullness": 74
+  },
+  "forecast": {
+    "code": "B",
+    "text": "Fine weather",
+    "trend": "steady"
   }
 }
