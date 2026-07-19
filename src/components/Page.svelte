@@ -1,13 +1,13 @@
 <script lang="ts">
-  import type { Observation, PageConfig } from '../lib/types'
+  import type { NordlysPayload, PageConfig } from '../lib/types'
   import Tile from './Tile.svelte'
 
   let {
     page,
-    current,
+    payload,
   }: {
     page: PageConfig
-    current: Record<string, Observation>
+    payload: NordlysPayload
   } = $props()
 </script>
 
@@ -18,7 +18,7 @@
     {/if}
     <div class="grid" style:--row-cols={row.columns ?? 4}>
       {#each row.tiles as tile, j (j)}
-        <Tile {tile} {current} />
+        <Tile {tile} {payload} />
       {/each}
     </div>
   </section>

@@ -9,6 +9,31 @@ export interface NordlysPayload {
   meta: Meta
   config: SkinConfig
   current: Record<string, Observation>
+  /** span ('day' | 'week' | …) -> obs -> series */
+  series?: Record<string, Record<string, SeriesEntry>>
+  /** span -> wind-rose distribution */
+  windrose?: Record<string, WindRoseData>
+}
+
+export interface SeriesEntry {
+  unit: string
+  label: string
+  decimals: number
+  /** [unix seconds, value|null] pairs, oldest first */
+  points: [number, number | null][]
+  /** aggregation applied by the SLE ('avg' | 'sum'), absent for raw */
+  aggregate?: string
+}
+
+export interface WindRoseData {
+  unit: string
+  /** speed band upper bounds (report units); the last band is open-ended */
+  bands: number[]
+  /** percent of samples that were calm (or had no direction) */
+  calm: number
+  samples: number
+  /** 16 sectors (N first, clockwise) x bands+1 percentages */
+  sectors: number[][]
 }
 
 export interface Meta {
@@ -28,6 +53,16 @@ export interface Station {
 export interface SkinConfig {
   theme?: ThemeConfig
   pages: PageConfig[]
+  live?: LiveConfig
+}
+
+export interface LiveConfig {
+  /** MQTT broker WebSocket URL, e.g. wss://host:9001 */
+  broker: string
+  /** topic with JSON loop payloads; keys are weewx obs names
+   * (unit suffixes like outTemp_C are stripped) */
+  topic?: string
+  [key: string]: unknown
 }
 
 export interface ThemeConfig {
@@ -54,7 +89,8 @@ export type TileType = 'gauge' | 'stat' | 'chart' | 'table' | 'text'
 
 export interface TileConfig {
   type: TileType
-  obs?: string
+  /** chart tiles may plot several observations */
+  obs?: string | string[]
   title?: string
   options?: TileOptions
 }
@@ -70,6 +106,14 @@ export interface TileOptions {
   cold_below?: number
   /** above this value (report units), the --nl-hot semantic token applies */
   hot_above?: number
+  /** chart kind: line | area | bar | scatter | windrose */
+  chart?: string
+  /** chart timespan: day | week | month | year (default day) */
+  span?: string
+  /** wind-rose speed band upper bounds (report units) */
+  bands?: number[]
+  /** wind-rose calm threshold (report units) */
+  calm_below?: number
   [key: string]: unknown
 }
 

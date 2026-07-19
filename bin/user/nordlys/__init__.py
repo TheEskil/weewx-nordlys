@@ -9,10 +9,11 @@ src/lib/types.ts).
 import json
 import re
 import time
+from bisect import bisect_right
 
 import weewx.units
 import weewx.xtypes
-from weeutil.weeutil import archiveDaySpan
+from weeutil.weeutil import TimeSpan, archiveDaySpan
 from weewx.cheetahgenerator import SearchList
 
 CONTRACT_VERSION = 1
@@ -31,6 +32,28 @@ _NO_MINMAX_OBS = {'rain', 'windDir'}
 # Observations that get a trend (change over the last three hours).
 _TREND_OBS = {'outTemp', 'barometer'}
 _TREND_SECONDS = 10800
+
+# Rolling chart timespans, anchored at the last archive record.
+_SPAN_SECONDS = {
+    'day': 86400,
+    'week': 7 * 86400,
+    'month': 30 * 86400,
+    'year': 365 * 86400,
+}
+# Default aggregation interval per span (None = raw archive records).
+_SPAN_AGG_INTERVAL = {
+    'day': None,
+    'week': 3600,
+    'month': 10800,
+    'year': 86400,
+}
+# Observations aggregated by sum instead of average.
+_SUM_OBS = {'rain'}
+
+# Wind-rose defaults; bands are upper bounds in report units, the last
+# band is open-ended. Overridable per tile in skin.conf.
+_ROSE_BANDS = [2, 4, 6, 9, 12]
+_ROSE_CALM_BELOW = 0.5
 
 
 def _coerce(value):
@@ -102,16 +125,54 @@ def _theme_config(section):
     return theme
 
 
-def _collect_obs(pages):
-    """All observation keys referenced by tiles, in config order."""
-    keys = []
+def _tiles(pages):
     for page in pages:
         for row in page['layout']:
             for tile in row['tiles']:
-                obs = tile.get('obs')
-                if obs and obs not in keys:
-                    keys.append(obs)
+                yield tile
+
+
+def _obs_list(tile):
+    obs = tile.get('obs')
+    if obs is None:
+        return []
+    return obs if isinstance(obs, list) else [obs]
+
+
+def _collect_obs(pages):
+    """Observation keys needing current data, in config order."""
+    keys = []
+    for tile in _tiles(pages):
+        if tile.get('type') == 'chart':
+            continue
+        for obs in _obs_list(tile):
+            if obs not in keys:
+                keys.append(obs)
     return keys
+
+
+def _collect_chart_needs(pages):
+    """(series needs, wind-rose needs) referenced by chart tiles.
+
+    Returns ({span: [obs, ...]}, {span: options}).
+    """
+    series_needs = {}
+    rose_needs = {}
+    for tile in _tiles(pages):
+        if tile.get('type') != 'chart':
+            continue
+        options = tile.get('options', {})
+        span = options.get('span', 'day')
+        if span not in _SPAN_SECONDS:
+            continue
+        if options.get('chart') == 'windrose':
+            rose_needs.setdefault(span, options)
+        else:
+            span_obs = series_needs.setdefault(span, [])
+            for obs in _obs_list(tile):
+                if obs not in span_obs:
+                    span_obs.append(obs)
+    return series_needs, rose_needs
 
 
 class NordlysSearchList(SearchList):
@@ -132,7 +193,15 @@ class NordlysSearchList(SearchList):
                 for page_id in pages_section.sections
             ]
 
+        if 'live' in getattr(nordlys_dict, 'sections', []):
+            live = _section_items(nordlys_dict['live'])
+            if live.get('broker'):
+                config['live'] = live
+
         current = self._current_data(config['pages'], db_lookup)
+        series_needs, rose_needs = _collect_chart_needs(config['pages'])
+        series = self._series_data(series_needs, db_lookup)
+        windrose = self._windrose_data(rose_needs, db_lookup)
         payload = {
             'meta': {
                 'version': CONTRACT_VERSION,
@@ -147,6 +216,8 @@ class NordlysSearchList(SearchList):
             },
             'config': config,
             'current': current,
+            'series': series,
+            'windrose': windrose,
         }
 
         # Escape "</" so the payload is safe inside a <script> element.
@@ -242,6 +313,133 @@ class NordlysSearchList(SearchList):
         if time_vt[0] is not None:
             extreme['time'] = time.strftime('%H:%M', time.localtime(time_vt[0]))
         return extreme
+
+    # ------------------------------------------------------------------
+    # chart series
+
+    def _series_data(self, series_needs, db_lookup):
+        if not series_needs:
+            return {}
+        db_manager = db_lookup()
+        last_ts = db_manager.lastGoodStamp()
+        if not last_ts:
+            return {}
+        labels = self.generator.skin_dict.get('Labels', {}).get('Generic', {})
+
+        result = {}
+        for span, obs_keys in series_needs.items():
+            timespan = TimeSpan(last_ts - _SPAN_SECONDS[span], last_ts)
+            span_data = {}
+            for obs in obs_keys:
+                try:
+                    entry = self._series(obs, span, timespan, db_manager, labels)
+                except (
+                    weewx.UnknownType,
+                    weewx.UnknownAggregation,
+                    weewx.CannotCalculate,
+                ):
+                    continue
+                if entry:
+                    span_data[obs] = entry
+            if span_data:
+                result[span] = span_data
+        return result
+
+    def _series(self, obs, span, timespan, db_manager, labels):
+        aggregate = None
+        interval = _SPAN_AGG_INTERVAL[span]
+        if obs in _SUM_OBS:
+            # Rain is summed into buckets even on the raw span.
+            aggregate, interval = 'sum', interval or 3600
+        elif interval:
+            aggregate = 'avg'
+
+        _, stop_vt, data_vt = weewx.xtypes.get_series(
+            obs,
+            timespan,
+            db_manager,
+            aggregate_type=aggregate,
+            aggregate_interval=interval,
+        )
+        data = self.generator.converter.convert(data_vt)
+        formatter = self.generator.formatter
+        unit_label = (formatter.get_label_string(data[1], plural=False) or '').strip()
+        decimals = self._decimals(formatter, data[1])
+        points = [
+            [ts, self._round(value, decimals)]
+            for ts, value in zip(stop_vt[0], data[0])
+        ]
+        entry = {
+            'unit': unit_label,
+            'label': labels.get(obs, obs),
+            'decimals': decimals,
+            'points': points,
+        }
+        if aggregate:
+            entry['aggregate'] = aggregate
+        return entry
+
+    # ------------------------------------------------------------------
+    # wind rose
+
+    def _windrose_data(self, rose_needs, db_lookup):
+        if not rose_needs:
+            return {}
+        db_manager = db_lookup()
+        last_ts = db_manager.lastGoodStamp()
+        if not last_ts:
+            return {}
+
+        result = {}
+        for span, options in rose_needs.items():
+            timespan = TimeSpan(last_ts - _SPAN_SECONDS[span], last_ts)
+            try:
+                entry = self._windrose(timespan, db_manager, options)
+            except (weewx.UnknownType, weewx.CannotCalculate):
+                continue
+            if entry:
+                result[span] = entry
+        return result
+
+    def _windrose(self, timespan, db_manager, options):
+        bands = options.get('bands', _ROSE_BANDS)
+        if not isinstance(bands, list):
+            bands = [bands]
+        calm_below = options.get('calm_below', _ROSE_CALM_BELOW)
+
+        _, _, speed_vt = weewx.xtypes.get_series('windSpeed', timespan, db_manager)
+        _, _, dir_vt = weewx.xtypes.get_series('windDir', timespan, db_manager)
+        speeds = self.generator.converter.convert(speed_vt)
+        directions = dir_vt[0]
+
+        sectors = [[0] * (len(bands) + 1) for _ in range(16)]
+        calm = 0
+        total = 0
+        for speed, direction in zip(speeds[0], directions):
+            if speed is None:
+                continue
+            total += 1
+            if speed < calm_below or direction is None:
+                calm += 1
+                continue
+            sector = int(round(direction / 22.5)) % 16
+            sectors[sector][bisect_right(bands, speed)] += 1
+        if not total:
+            return None
+
+        def pct(count):
+            return round(100.0 * count / total, 1)
+
+        unit_label = (
+            self.generator.formatter.get_label_string(speeds[1], plural=False) or ''
+        ).strip()
+        return {
+            'unit': unit_label,
+            'bands': bands,
+            'calm': pct(calm),
+            'samples': total,
+            'sectors': [[pct(count) for count in row] for row in sectors],
+        }
 
     def _format_altitude(self, altitude_vt):
         converted = self.generator.converter.convert(altitude_vt)

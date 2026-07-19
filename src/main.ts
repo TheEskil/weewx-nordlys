@@ -17,12 +17,17 @@ async function loadPayload(): Promise<NordlysPayload> {
   let src = el.getAttribute('data-src')
   if (src) {
     // Dev harness only (data-src is never set in production): allow
-    // ?fixture=<name> to load an alternative fixture.
-    const fixture = new URLSearchParams(location.search).get('fixture')
+    // ?fixture=<name> to load an alternative fixture, and
+    // ?live=ws://host:port to exercise live updates (see dev/live-sim.mjs).
+    const params = new URLSearchParams(location.search)
+    const fixture = params.get('fixture')
     if (fixture && /^[\w-]+$/.test(fixture)) src = `/fixtures/${fixture}.json`
     const res = await fetch(src)
     if (!res.ok) throw new Error(`Nordlys: loading ${src} failed (${res.status})`)
-    return (await res.json()) as NordlysPayload
+    const payload = (await res.json()) as NordlysPayload
+    const live = params.get('live')
+    if (live) payload.config.live = { broker: live }
+    return payload
   }
   return JSON.parse(el.textContent ?? '') as NordlysPayload
 }

@@ -30,6 +30,13 @@ npm test        # vitest unit tests
 The dev server renders `fixtures/today.json`; append `?fixture=extremes`
 to preview the winter-storm fixture (semantic cold/hot coloring).
 
+To develop live updates without a real MQTT broker:
+
+```sh
+node dev/live-sim.mjs        # broker on ws://localhost:9002, synthetic loop packets
+# then open http://localhost:5173/?live=ws://localhost:9002
+```
+
 To exercise the full weewx pipeline locally (report generation with a
 synthetic 7-day archive database):
 

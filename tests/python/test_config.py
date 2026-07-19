@@ -20,6 +20,7 @@ sys.path.insert(
 
 from nordlys import (  # noqa: E402
     _coerce,
+    _collect_chart_needs,
     _collect_obs,
     _page_config,
     _theme_config,
@@ -136,6 +137,78 @@ class TestCollectObs(unittest.TestCase):
             }
         ]
         self.assertEqual(_collect_obs(pages), ['outTemp', 'windDir'])
+
+    def test_chart_tiles_are_not_current_obs(self):
+        pages = [
+            {
+                'layout': [
+                    {
+                        'tiles': [
+                            {'type': 'stat', 'obs': 'outTemp'},
+                            {
+                                'type': 'chart',
+                                'obs': ['barometer'],
+                                'options': {'chart': 'line'},
+                            },
+                        ]
+                    }
+                ]
+            }
+        ]
+        self.assertEqual(_collect_obs(pages), ['outTemp'])
+
+
+class TestCollectChartNeeds(unittest.TestCase):
+    def test_series_and_rose_split_by_span(self):
+        pages = [
+            {
+                'layout': [
+                    {
+                        'tiles': [
+                            {
+                                'type': 'chart',
+                                'obs': ['outTemp', 'dewpoint'],
+                                'options': {'chart': 'line'},
+                            },
+                            {
+                                'type': 'chart',
+                                'obs': 'outTemp',
+                                'options': {'chart': 'line', 'span': 'week'},
+                            },
+                            {
+                                'type': 'chart',
+                                'options': {'chart': 'windrose', 'bands': [2, 4]},
+                            },
+                            {'type': 'stat', 'obs': 'UV'},
+                        ]
+                    }
+                ]
+            }
+        ]
+        series, rose = _collect_chart_needs(pages)
+        self.assertEqual(
+            series, {'day': ['outTemp', 'dewpoint'], 'week': ['outTemp']}
+        )
+        self.assertEqual(list(rose), ['day'])
+        self.assertEqual(rose['day']['bands'], [2, 4])
+
+    def test_unknown_span_ignored(self):
+        pages = [
+            {
+                'layout': [
+                    {
+                        'tiles': [
+                            {
+                                'type': 'chart',
+                                'obs': 'outTemp',
+                                'options': {'chart': 'line', 'span': 'decade'},
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+        self.assertEqual(_collect_chart_needs(pages), ({}, {}))
 
 
 if __name__ == '__main__':

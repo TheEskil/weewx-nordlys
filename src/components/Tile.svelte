@@ -1,21 +1,20 @@
 <script lang="ts">
-  import type { Observation, TileConfig } from '../lib/types'
+  import type { NordlysPayload, TileConfig } from '../lib/types'
   import StatTile from './StatTile.svelte'
   import Gauge from './Gauge.svelte'
   import CompassGauge from './CompassGauge.svelte'
+  import Chart from './Chart.svelte'
+  import WindRose from './WindRose.svelte'
 
-  let {
-    tile,
-    current,
-  }: {
-    tile: TileConfig
-    current: Record<string, Observation>
-  } = $props()
+  let { tile, payload }: { tile: TileConfig; payload: NordlysPayload } =
+    $props()
 
-  const obs = $derived(tile.obs ? current[tile.obs] : undefined)
+  const obsKey = $derived(Array.isArray(tile.obs) ? tile.obs[0] : tile.obs)
+  const obs = $derived(obsKey ? payload.current[obsKey] : undefined)
+  const isChart = $derived(tile.type === 'chart')
 </script>
 
-<div class="tile">
+<div class="tile" class:chart={isChart}>
   {#if tile.type === 'gauge' && obs}
     {#if tile.options?.style === 'compass'}
       <CompassGauge {obs} title={tile.title} />
@@ -24,11 +23,17 @@
     {/if}
   {:else if tile.type === 'stat' && obs}
     <StatTile {obs} title={tile.title} options={tile.options} />
+  {:else if tile.type === 'chart'}
+    {#if tile.options?.chart === 'windrose'}
+      <WindRose {tile} {payload} />
+    {:else}
+      <Chart {tile} {payload} />
+    {/if}
   {:else if tile.type === 'text'}
     <p class="text">{tile.title ?? ''}</p>
   {:else}
     <p class="missing">
-      {tile.obs ? `No data for ${tile.obs}` : `Unsupported tile: ${tile.type}`}
+      {obsKey ? `No data for ${obsKey}` : `Unsupported tile: ${tile.type}`}
     </p>
   {/if}
 </div>

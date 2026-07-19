@@ -38,6 +38,7 @@ class NordlysInstaller(ExtensionInstaller):
                     [
                         'skins/Nordlys/dist/nordlys.js',
                         'skins/Nordlys/dist/nordlys.css',
+                        'skins/Nordlys/dist/nordlys.mqtt.esm.js',
                     ],
                 ),
             ],

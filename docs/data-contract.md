@@ -64,7 +64,7 @@ and the front-end fetches it.
     ]
   },
 
-  "current": {               // one entry per obs referenced by any tile
+  "current": {               // one entry per obs referenced by any non-chart tile
     "outTemp": {
       "value": 13.6,         // report units, rounded to "decimals"; null if unknown
       "unit": "°C",          // display label, stripped
@@ -73,6 +73,30 @@ and the front-end fetches it.
       "min": { "value": 9.8, "time": "04:37" },  // today's extreme (optional)
       "max": { "value": 15.2, "time": "13:05" },
       "trend": 0.4           // change over last 3 h, report units (optional)
+    }
+  },
+
+  "series": {                // one entry per span/obs referenced by chart tiles
+    "day": {                 // rolling window anchored at the last record:
+                             // day 24h | week 7d | month 30d | year 365d
+      "outTemp": {
+        "unit": "°C",
+        "label": "Outside temperature",
+        "decimals": 1,
+        "points": [[1784381700, 14.8], …],  // [unix s, value|null], oldest first
+        "aggregate": "avg"   // avg | sum; absent for raw archive records
+      }
+    }
+  },
+
+  "windrose": {              // one entry per span referenced by windrose tiles
+    "day": {
+      "unit": "m/s",
+      "bands": [2, 4, 6, 9, 12],  // upper bounds, report units; last band open
+      "calm": 6.9,           // % of samples calm (below calm_below) or dirless
+      "samples": 288,
+      "sectors": [[…], …]    // 16 sectors (N first, clockwise), each
+                             // bands+1 percentages of all samples
     }
   }
 }
@@ -102,6 +126,17 @@ and the front-end fetches it.
 - **Unknown options**: tile options are passed through verbatim from
   skin.conf, so future tile types can add options without a contract
   bump; the front-end ignores options it does not know.
+- **Series aggregation**: per-span defaults are raw (day), 1 h avg
+  (week), 3 h avg (month), 1 d avg (year); rain is always summed
+  (hourly buckets on the day span). All series in one chart tile share
+  the span, so they align on the first series' timestamps.
+- **Live updates**: `config.live` (from `[Nordlys][[live]]`) holds the
+  MQTT-over-WebSocket `broker` URL and `topic` (default
+  `weather/loop`). Messages are JSON loop packets keyed by weewx obs
+  names; unit suffixes (`outTemp_C`) are stripped and `dayRain` maps to
+  `rain`. Values must already be in the report's unit system. The
+  front-end updates `current` values (and locally exceeded extremes)
+  in place; series are not updated live.
 - **Escaping**: the serialized JSON has `</` escaped as `<\/` so it is
   safe inside a `<script>` element; `JSON.parse` is unaffected.
 
@@ -112,6 +147,5 @@ are allowed within a version; the front-end must tolerate unknown fields.
 
 ## Planned (not yet in v1)
 
-`series` (chart data), `stats` (aggregate tables), `climatology`,
-`almanac`, `forecast` - added as milestones 4-5 land, with this document
-updated in lockstep.
+`stats` (aggregate tables), `climatology`, `almanac`, `forecast` -
+added as milestone 5 lands, with this document updated in lockstep.

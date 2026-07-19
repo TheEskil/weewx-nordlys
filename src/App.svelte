@@ -1,22 +1,54 @@
 <script lang="ts">
   import type { NordlysPayload } from './lib/types'
+  import { startLive, type LiveStatus } from './lib/live'
   import Header from './components/Header.svelte'
   import Page from './components/Page.svelte'
 
   let { payload }: { payload: NordlysPayload } = $props()
 
-  // The payload prop is set once at mount; capturing the initial page is intended.
+  // The payload prop is set once at mount; deep-reactive state lets
+  // live updates flow into tiles.
+  // svelte-ignore state_referenced_locally
+  const data = $state(payload)
+  let liveStatus: LiveStatus = $state('off')
+
   // svelte-ignore state_referenced_locally
   let activePageId = $state(payload.config.pages[0]?.id)
   const activePage = $derived(
-    payload.config.pages.find((p) => p.id === activePageId),
+    data.config.pages.find((p) => p.id === activePageId),
   )
   const generated = $derived(
-    new Date(payload.meta.generatedAt * 1000).toLocaleString(undefined, {
+    new Date(data.meta.generatedAt * 1000).toLocaleString(undefined, {
       dateStyle: 'medium',
       timeStyle: 'short',
     }),
   )
+
+  $effect(() => {
+    const live = data.config.live
+    if (!live?.broker) return
+    return startLive(live, applyLiveUpdates, (status) => (liveStatus = status))
+  })
+
+  function applyLiveUpdates(updates: Record<string, number>) {
+    const now = new Date().toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    for (const [key, value] of Object.entries(updates)) {
+      const obs = data.current[key]
+      if (!obs) continue
+      const rounded = Number(value.toFixed(obs.decimals ?? 1))
+      obs.value = rounded
+      if (obs.max?.value != null && rounded > obs.max.value) {
+        obs.max = { value: rounded, time: now }
+      }
+      if (obs.min?.value != null && rounded < obs.min.value) {
+        obs.min = { value: rounded, time: now }
+      }
+    }
+  }
 </script>
 
 <!-- The one brand flourish: a full-bleed aurora gradient hairline. -->
@@ -24,15 +56,16 @@
 
 <div class="app">
   <Header
-    station={payload.meta.station}
-    pages={payload.config.pages}
+    station={data.meta.station}
+    pages={data.config.pages}
     active={activePageId}
+    live={liveStatus}
     onNavigate={(id) => (activePageId = id)}
   />
 
   <main>
     {#if activePage}
-      <Page page={activePage} current={payload.current} />
+      <Page page={activePage} payload={data} />
     {/if}
   </main>
 
