@@ -81,6 +81,29 @@ The front-end understands a strftime subset (`%H %M %S %d %m %b %a %Y
 issue). These keys are separate from weewx's `[Units][[TimeFormats]]`,
 which formats Cheetah `$...` tags (e.g. NOAA reports), not the payload.
 
+## `[[seo]]` - search & social sharing
+
+Every page ships a meta description and OpenGraph/Twitter cards
+automatically. `og:url`, `og:image`, and `sitemap.xml` need an **absolute
+site root**, resolved as: `[[seo]] base_url` -> weewx's
+`[Station] station_url` -> none. With no base URL, those absolute-only
+bits are skipped (descriptions + cards with a relative image still ship,
+and `sitemap.xml` is empty).
+
+```ini
+    [[seo]]
+        base_url = https://weather.example.com/nordlys
+        description = Custom description for the whole site
+        image = og-image.png     # social card, relative to the site root
+        robots = true            # emit robots.txt + sitemap.xml (default)
+```
+
+- Descriptions are page-aware by default (per-page title, or
+  `<period> archive` on archive pages); override with `description`.
+- `robots = false` writes a `Disallow: /` robots.txt and an empty
+  sitemap.
+- A JSON-LD `WebSite` + `Place` (schema.org) block ships on every page.
+
 ## `[[climatological_days]]`
 
 First-class day-counting definitions, rendered by `climatology` tiles:

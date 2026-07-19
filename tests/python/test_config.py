@@ -27,9 +27,13 @@ from nordlys import (  # noqa: E402
     NordlysSearchList,
     _all_obs,
     _celestial_sections,
+    _base_url,
     _coerce,
     _formats_config,
     _reports_stats_obs,
+    _seo_config,
+    _seo_meta,
+    _sitemap_urls,
     _detect_period,
     _gen_week_spans,
     _period_meta,
@@ -159,6 +163,66 @@ class TestFormatsConfig(unittest.TestCase):
         formats = _formats_config(config['formats'])
         self.assertEqual(formats['time'], '%I:%M %p')
         self.assertEqual(formats['date'], '%d %b')  # default kept
+
+
+class _Stn:
+    def __init__(self, location='Aldersundet', station_url=None):
+        self.location = location
+        self.station_url = station_url
+
+
+class TestSeo(unittest.TestCase):
+    def test_defaults_and_absent_section(self):
+        seo = _seo_config({})
+        self.assertEqual(seo['image'], 'og-image.png')
+        self.assertTrue(seo['robots'])
+
+    def test_base_url_precedence(self):
+        # [[seo]] base_url wins over station_url; trailing slash trimmed.
+        self.assertEqual(
+            _base_url({'base_url': 'https://a.example/x/'}, _Stn(station_url='https://b')),
+            'https://a.example/x',
+        )
+        self.assertEqual(_base_url({}, _Stn(station_url='https://b/')), 'https://b')
+        self.assertEqual(_base_url({}, _Stn()), '')
+
+    def test_seo_meta_absolute_vs_relative(self):
+        seo = _seo_config({})
+        with_url = _seo_meta('Today', 'index.html', seo, 'https://x.example',
+                             'Site', 'Loc')
+        self.assertEqual(with_url['url'], 'https://x.example/index.html')
+        self.assertEqual(with_url['image'], 'https://x.example/og-image.png')
+        self.assertIn('Today', with_url['title'])
+
+        without = _seo_meta('Today', 'index.html', seo, '', 'Site', 'Loc')
+        self.assertEqual(without['url'], '')  # omitted when no base URL
+        self.assertEqual(without['image'], 'og-image.png')  # relative
+
+    def test_seo_meta_period_description(self):
+        seo = _seo_config({})
+        meta = _seo_meta('July 2026', 'month-2026-07.html', seo, '', 'S', 'Loc',
+                         period_label='July 2026')
+        self.assertIn('archive for Loc - July 2026', meta['description'])
+
+    def test_seo_config_reads_subsection(self):
+        seo = _seo_config(section(['[seo]', 'base_url = https://x', 'robots = false'])['seo'])
+        self.assertEqual(seo['base_url'], 'https://x')
+        self.assertIs(seo['robots'], False)
+
+    def test_seo_meta_escapes_attributes(self):
+        seo = {'description': 'a "b" & <c>', 'image': 'og-image.png'}
+        meta = _seo_meta('T', 'index.html', seo, '', 'S', 'Loc')
+        self.assertEqual(meta['description'], 'a &quot;b&quot; &amp; &lt;c&gt;')
+
+    def test_sitemap_urls(self):
+        pages = [{'id': 'today'}, {'id': 'week'}]
+        archives = {'weeks': [{'page': 'week-2026-07-13.html'}], 'months': [], 'years': []}
+        urls = _sitemap_urls('https://x.example', pages, archives, '2026-07-19')
+        locs = [u['loc'] for u in urls]
+        self.assertEqual(locs[0], 'https://x.example/index.html')
+        self.assertEqual(locs[1], 'https://x.example/week.html')
+        self.assertIn('https://x.example/week-2026-07-13.html', locs)
+        self.assertEqual(_sitemap_urls('', pages, archives, '2026-07-19'), [])
 
 
 class TestThemeConfig(unittest.TestCase):

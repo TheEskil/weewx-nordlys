@@ -43,6 +43,10 @@ and the front-end fetches it.
       "datetime": "%d %b %Y, %H:%M",
       "weekday_time": "%a %H:%M"
     },
+    "seo": {                 // search/social (meta + OG are server-rendered
+      "image": "og-image.png",   // into the page <head>, not read by the JS)
+      "locale": "en", "robots": true
+    },
     "pages": [
       {
         "id": "today",       // section name
