@@ -31,6 +31,18 @@
     "pages": {
       "type": "array",
       "items": { "$ref": "#/$defs/page" }
+    },
+    "formats": {
+      "type": "object",
+      "description": "strftime date/time formats shared with the front-end.",
+      "properties": {
+        "time": { "type": "string" },
+        "date": { "type": "string" },
+        "date_year": { "type": "string" },
+        "datetime": { "type": "string" },
+        "weekday_time": { "type": "string" }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true,

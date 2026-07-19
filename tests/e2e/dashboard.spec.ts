@@ -25,6 +25,18 @@ test.describe('dashboard (today fixture)', () => {
     await expect(humidity.locator('.value')).toContainText('79')
   })
 
+  test('formats the footer as 24-hour European date/time', async ({
+    page,
+  }) => {
+    // e.g. "Generated 19 Jul 2026, 16:55" - not "Jul 19, 2026, 4:55 PM".
+    await expect(
+      page
+        .locator('footer')
+        .getByText(/Generated \d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}/),
+    ).toBeVisible()
+    await expect(page.locator('footer')).not.toContainText(/\bPM\b|\bAM\b/)
+  })
+
   test('renders charts, wind rose, almanac, and forecast', async ({
     page,
   }) => {

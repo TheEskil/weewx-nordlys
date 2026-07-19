@@ -2,6 +2,7 @@
   import type { NordlysPayload, SeriesEntry, TileConfig } from '../lib/types'
   import { formatValue } from '../lib/format'
   import { emptyObsSet, obsKeysOf } from '../lib/empty'
+  import { formatsOf, strftime } from '../lib/strftime'
 
   let { tile, payload }: { tile: TileConfig; payload: NordlysPayload } =
     $props()
@@ -61,13 +62,9 @@
     page = 0
   }
 
+  const fmts = $derived(formatsOf(payload))
   function timeLabel(ts: number): string {
-    return new Date(ts * 1000).toLocaleString(undefined, {
-      weekday: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
+    return strftime(ts, fmts.weekday_time)
   }
 
   function arrow(index: number): string {

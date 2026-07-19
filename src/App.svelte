@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NordlysPayload } from './lib/types'
   import { startLive, type LiveStatus } from './lib/live'
+  import { formatsOf, strftime } from './lib/strftime'
   import Header from './components/Header.svelte'
   import Page from './components/Page.svelte'
 
@@ -60,12 +61,8 @@
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   })
-  const generated = $derived(
-    new Date(data.meta.generatedAt * 1000).toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }),
-  )
+  const fmts = $derived(formatsOf(data))
+  const generated = $derived(strftime(data.meta.generatedAt, fmts.datetime))
 
   $effect(() => {
     const live = data.config.live
@@ -74,11 +71,7 @@
   })
 
   function applyLiveUpdates(updates: Record<string, number>) {
-    const now = new Date().toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
+    const now = strftime(Date.now() / 1000, fmts.time)
     for (const [key, value] of Object.entries(updates)) {
       const obs = data.current[key]
       if (!obs) continue

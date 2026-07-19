@@ -1,8 +1,11 @@
 <script lang="ts">
   import type { NordlysPayload } from '../lib/types'
   import { formatValue } from '../lib/format'
+  import { formatsOf, strftime } from '../lib/strftime'
 
   let { payload }: { payload: NordlysPayload } = $props()
+
+  const fmts = $derived(formatsOf(payload))
 
   const calendar = $derived(payload.climatology?.calendar)
 
@@ -53,7 +56,7 @@
       if (month !== lastMonth) {
         labels.push({
           week: cell.week,
-          text: cell.date.toLocaleString(undefined, { month: 'short' }),
+          text: strftime(cell.ts, '%b'),
         })
         lastMonth = month
       }
@@ -72,12 +75,8 @@
     { row: 4, text: 'Fri' },
   ]
 
-  function tooltip(cell: { date: Date; value: number | null }): string {
-    const day = cell.date.toLocaleDateString(undefined, {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
+  function tooltip(cell: { ts: number; value: number | null }): string {
+    const day = strftime(cell.ts, fmts.date_year)
     if (cell.value === null || !calendar) return `${day}: no data`
     return `${day}: ${formatValue(cell.value, 1)} ${calendar.unit}`
   }

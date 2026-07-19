@@ -5,12 +5,17 @@
   import { cssColor } from '../lib/color'
   import { degToCompass } from '../lib/format'
   import { emptyObsSet, obsKeysOf } from '../lib/empty'
+  import { formatsOf, strftime } from '../lib/strftime'
 
   let { tile, payload }: { tile: TileConfig; payload: NordlysPayload } =
     $props()
 
   const kind = $derived(tile.options?.chart ?? 'line')
   const span = $derived(tile.options?.span ?? 'day')
+  const fmts = $derived(formatsOf(payload))
+  // Day-scale charts tick by time (06:00, 12:00, …); longer spans by date
+  // (13 Jul, 14 Jul), replacing uPlot's US "6pm" defaults.
+  const isDaySpan = $derived(['24h', 'day', 'yesterday'].includes(span))
   const empty = $derived(
     tile.options?.always_show ? new Set<string>() : emptyObsSet(payload),
   )
@@ -107,10 +112,25 @@
     return {
       width,
       height: 190,
-      series: [{}, ...series],
+      series: [
+        {
+          value: (_u: uPlot, ts: number | null) =>
+            ts == null
+              ? ''
+              : strftime(ts, isDaySpan ? fmts.weekday_time : fmts.date),
+        },
+        ...series,
+      ],
       scales: { y: { range: isDirection ? [0, 360] : yRange } },
       axes: [
-        { ...axis, grid: { show: false } },
+        {
+          ...axis,
+          grid: { show: false },
+          values: (_u: uPlot, splits: number[]) =>
+            splits.map((ts) =>
+              strftime(ts, isDaySpan ? fmts.time : fmts.date),
+            ),
+        },
         isDirection
           ? {
               ...axis,

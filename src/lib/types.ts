@@ -199,6 +199,14 @@ export interface SkinConfig {
   theme?: ThemeConfig
   pages: PageConfig[]
   live?: LiveConfig
+  /** strftime date/time formats shared with the front-end */
+  formats?: {
+    time: string
+    date: string
+    date_year: string
+    datetime: string
+    weekday_time: string
+  }
 }
 
 export interface LiveConfig {

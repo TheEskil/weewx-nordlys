@@ -61,6 +61,26 @@ tile. Values must be in the report's unit system. When configured, the
 page header shows a live indicator and tiles update in place; the MQTT
 client is only downloaded by browsers when `[[live]]` is present.
 
+## `[[formats]]` - date/time formats
+
+strftime patterns shared by the SLE and the front-end, so extreme times,
+chart axes, the footer, and the records table all format the same way.
+Defaults are 24-hour time and European dates with abbreviated months:
+
+```ini
+    [[formats]]
+        time = %H:%M                 # day-span extremes, records, live
+        date = %d %b                 # month/year extremes, chart date ticks
+        date_year = %d %b %Y         # all-time extremes, footer date
+        datetime = %d %b %Y, %H:%M   # footer "Generated"
+        weekday_time = %a %H:%M      # week-span extremes, records rows
+```
+
+The front-end understands a strftime subset (`%H %M %S %d %m %b %a %Y
+%I %p`), month/day names in English (i18n via lang files is a later
+issue). These keys are separate from weewx's `[Units][[TimeFormats]]`,
+which formats Cheetah `$...` tags (e.g. NOAA reports), not the payload.
+
 ## `[[climatological_days]]`
 
 First-class day-counting definitions, rendered by `climatology` tiles:
