@@ -250,9 +250,14 @@ def _theme_config(section):
 
 
 def _formats_config(section):
-    """Date/time formats with the 24-hour European defaults filled in."""
+    """Date/time formats with the 24-hour European defaults filled in.
+
+    `section` is a ConfigObj section when [[formats]] is present, else an
+    empty dict - in which case the defaults stand.
+    """
     formats = dict(_DEFAULT_FORMATS)
-    formats.update(_section_items(section))
+    if hasattr(section, 'scalars'):
+        formats.update(_section_items(section))
     return formats
 
 
