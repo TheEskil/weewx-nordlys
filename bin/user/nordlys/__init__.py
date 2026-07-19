@@ -379,6 +379,16 @@ def _celestial_sections(pages):
     return sections
 
 
+def _reports_stats_obs(pages):
+    """The at-a-glance obs a reports tile lists per period (its `stats`)."""
+    for tile in _tiles(pages):
+        if tile.get('type') == 'reports':
+            stats = (tile.get('options') or {}).get('stats')
+            if stats:
+                return stats if isinstance(stats, list) else [stats]
+    return []
+
+
 def _gen_week_spans(start_ts, stop_ts, week_start=6):
     """Yield weekly TimeSpans covering [start_ts, stop_ts], honoring the
     station's week_start (like weeutil's genMonthSpans for months)."""
@@ -720,7 +730,9 @@ class NordlysSearchList(SearchList):
             or any(page.get('picker') for page in pages)
         )
         archives = (
-            self._archives_index(db_manager, week_start)
+            self._archives_index(
+                db_manager, week_start, _reports_stats_obs(pages)
+            )
             if needs_archives
             else None
         )
@@ -1074,11 +1086,14 @@ class NordlysSearchList(SearchList):
                 if max_entry:
                     entry['max'] = max_entry
         else:
-            min_entry, _ = extreme('min', 'mintime')
             max_entry, _ = extreme('max', 'maxtime')
             avg = aggregate('avg')
-            if min_entry:
-                entry['min'] = min_entry
+            # A minimum adds no information for wind/rain-rate/UV/radiation
+            # (a "lowest gust ever" is just noise), matching current obs.
+            if obs not in _NO_MIN_OBS:
+                min_entry, _ = extreme('min', 'mintime')
+                if min_entry:
+                    entry['min'] = min_entry
             if max_entry:
                 entry['max'] = max_entry
             if avg[0] is not None:
@@ -1549,10 +1564,11 @@ class NordlysSearchList(SearchList):
     # ------------------------------------------------------------------
     # archives index
 
-    def _archives_index(self, db_manager, week_start=6):
+    def _archives_index(self, db_manager, week_start=6, stats_obs=()):
         """Every week/month/year in the database, with archive-page (and
         NOAA, for months/years) links. Oldest first; the front-end orders
-        newest-first where needed."""
+        newest-first where needed. Months/years carry at-a-glance mini
+        stats (avg/total per configured obs) for the period browser."""
         first_ts = db_manager.firstGoodStamp()
         last_ts = db_manager.lastGoodStamp()
         if not first_ts or not last_ts:
@@ -1571,28 +1587,64 @@ class NordlysSearchList(SearchList):
         months = []
         for span in genMonthSpans(first_ts, last_ts):
             start = time.localtime(span.start)
-            months.append(
-                {
-                    'id': time.strftime('%Y-%m', start),
-                    'label': time.strftime('%B %Y', start),
-                    'month': time.strftime('%b', start),
-                    'year': time.strftime('%Y', start),
-                    'page': time.strftime(_ARCHIVE_MONTH_PAGE, start),
-                    'noaa': time.strftime(_NOAA_MONTH_FILE, start),
-                }
-            )
+            entry = {
+                'id': time.strftime('%Y-%m', start),
+                'label': time.strftime('%B %Y', start),
+                'month': time.strftime('%b', start),
+                'year': time.strftime('%Y', start),
+                'page': time.strftime(_ARCHIVE_MONTH_PAGE, start),
+                'noaa': time.strftime(_NOAA_MONTH_FILE, start),
+            }
+            self._attach_period_stats(entry, stats_obs, span, db_manager)
+            months.append(entry)
         years = []
         for span in genYearSpans(first_ts, last_ts):
             start = time.localtime(span.start)
-            years.append(
+            entry = {
+                'id': time.strftime('%Y', start),
+                'label': time.strftime('%Y', start),
+                'page': time.strftime(_ARCHIVE_YEAR_PAGE, start),
+                'noaa': time.strftime(_NOAA_YEAR_FILE, start),
+            }
+            self._attach_period_stats(entry, stats_obs, span, db_manager)
+            years.append(entry)
+        return {'weeks': weeks, 'months': months, 'years': years}
+
+    def _attach_period_stats(self, entry, stats_obs, span, db_manager):
+        if not stats_obs:
+            return
+        converter = self.generator.converter
+        formatter = self.generator.formatter
+        stats = []
+        for obs in stats_obs:
+            aggregate = 'sum' if obs in _SUM_OBS else 'avg'
+            try:
+                vt = weewx.xtypes.get_aggregate(
+                    obs, span, aggregate, db_manager
+                )
+            except (
+                weewx.UnknownType,
+                weewx.UnknownAggregation,
+                weewx.CannotCalculate,
+            ):
+                continue
+            value = converter.convert(vt)
+            if value[0] is None:
+                continue
+            decimals = self._decimals(formatter, value[1])
+            stats.append(
                 {
-                    'id': time.strftime('%Y', start),
-                    'label': time.strftime('%Y', start),
-                    'page': time.strftime(_ARCHIVE_YEAR_PAGE, start),
-                    'noaa': time.strftime(_NOAA_YEAR_FILE, start),
+                    'obs': obs,
+                    'value': self._round(value[0], decimals),
+                    'unit': (
+                        formatter.get_label_string(value[1], plural=False) or ''
+                    ).strip(),
+                    'decimals': decimals,
+                    'aggregate': aggregate,
                 }
             )
-        return {'weeks': weeks, 'months': months, 'years': years}
+        if stats:
+            entry['stats'] = stats
 
     def _format_altitude(self, altitude_vt):
         converted = self.generator.converter.convert(altitude_vt)

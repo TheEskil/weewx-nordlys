@@ -51,6 +51,17 @@ export interface ArchiveLink {
   page: string
   /** NOAA text report path; months/years only */
   noaa?: string
+  /** at-a-glance period stats (months/years) for the period browser */
+  stats?: PeriodStat[]
+}
+
+export interface PeriodStat {
+  obs: string
+  value: number
+  unit: string
+  decimals: number
+  /** 'avg' or 'sum' */
+  aggregate: string
 }
 
 export interface StatsEntry {

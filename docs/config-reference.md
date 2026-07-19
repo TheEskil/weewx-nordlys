@@ -229,7 +229,25 @@ lays out all five. Everything beyond sunrise/sunset/phase (sun path,
 twilight, moon and planet rise/set, seasons) needs the optional `ephem`
 Python package; without it those panels show the basic data plus a hint.
 
-## `[[archive]]` - archive pages
+**stats table extras**
+
+```ini
+    style = cards        # render the extremes as record cards (label,
+                         # value, date) - e.g. all-time station records
+```
+
+`style = cards` on a `stats` table shows each obs's highest/lowest (rain:
+wettest day) as record cards instead of a min/avg/max table.
+
+**reports** - `stats = outTemp, rain` adds at-a-glance period stats
+(average/total per obs) to each month/year in the period browser.
+
+## `[[archive]]` - per-period page layout
+
+> Not to be confused with the `archive` **page** (`[[pages]][[[archive]]]`,
+> the browser tab at `archive.html`). This `[[archive]]` section is the
+> layout weewx reuses for every generated *per-period* page. Distinct
+> config paths - they don't clash.
 
 weewx generates one page per calendar month and year
 (`month-YYYY-MM.html`, `year-YYYY.html`) plus NOAA text reports

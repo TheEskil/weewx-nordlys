@@ -20,9 +20,76 @@
       ),
   )
   const hasSum = $derived(rows.some(({ entry }) => entry.sum !== undefined))
+
+  // style = cards: present the extremes as record cards (label, value,
+  // date) instead of a min/avg/max table - for all-time station records.
+  const asCards = $derived(tile.options?.style === 'cards')
+  type Card = {
+    key: string
+    label: string
+    value: number | null
+    unit: string
+    decimals: number
+    time?: string
+  }
+  const cards = $derived.by(() => {
+    const out: Card[] = []
+    for (const { key, entry } of rows) {
+      const label = entry.label.toLowerCase()
+      if (entry.sum !== undefined) {
+        if (entry.max)
+          out.push({
+            key: `${key}-max`,
+            label: `Wettest day`,
+            value: entry.max.value,
+            unit: entry.unit,
+            decimals: entry.decimals,
+            time: entry.max.time,
+          })
+      } else {
+        if (entry.max)
+          out.push({
+            key: `${key}-max`,
+            label: `Highest ${label}`,
+            value: entry.max.value,
+            unit: entry.unit,
+            decimals: entry.decimals,
+            time: entry.max.time,
+          })
+        if (entry.min)
+          out.push({
+            key: `${key}-min`,
+            label: `Lowest ${label}`,
+            value: entry.min.value,
+            unit: entry.unit,
+            decimals: entry.decimals,
+            time: entry.min.time,
+          })
+      }
+    }
+    return out
+  })
 </script>
 
-{#if rows.length > 0}
+{#if asCards}
+  {#if cards.length > 0}
+    <div class="cards">
+      {#each cards as card (card.key)}
+        <div class="card">
+          <p class="card-label">{card.label}</p>
+          <p class="card-value nl-num">
+            {formatValue(card.value, card.decimals)}<span class="card-unit"
+              >{card.unit}</span
+            >
+          </p>
+          {#if card.time}<p class="card-time nl-num">{card.time}</p>{/if}
+        </div>
+      {/each}
+    </div>
+  {:else}
+    <p class="missing">No records for {span}</p>
+  {/if}
+{:else if rows.length > 0}
   <div class="scroll">
     <table>
       <thead>
@@ -77,6 +144,36 @@
 {/if}
 
 <style>
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--nl-space-2);
+  }
+
+  .card-label {
+    font-size: var(--nl-fs-sm);
+    color: var(--nl-text-dim);
+  }
+
+  .card-value {
+    font-size: var(--nl-fs-lg);
+    font-weight: 600;
+    margin-top: var(--nl-space-0);
+  }
+
+  .card-unit {
+    font-size: var(--nl-fs-base);
+    font-weight: 400;
+    color: var(--nl-text-dim);
+    margin-left: var(--nl-space-0);
+  }
+
+  .card-time {
+    font-size: var(--nl-fs-sm);
+    color: var(--nl-text-dim);
+    margin-top: var(--nl-space-0);
+  }
+
   .scroll {
     overflow-x: auto;
   }

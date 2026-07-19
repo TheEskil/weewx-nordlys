@@ -99,7 +99,7 @@
       "properties": {
         "min": { "type": "number" },
         "max": { "type": "number" },
-        "style": { "enum": ["compass"] },
+        "style": { "enum": ["compass", "cards"] },
         "color": { "type": "string" },
         "colors": {
           "type": "array",
@@ -115,6 +115,11 @@
         },
         "table": { "enum": ["stats", "records"] },
         "aggregate": { "enum": ["avg", "min", "max", "sum"] },
+        "stats": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "reports tile: obs shown as at-a-glance period stats in the browser."
+        },
         "section": {
           "enum": ["sun", "sunpath", "moon", "seasons", "planets"],
           "description": "celestial tile: which almanac section to render (bare tile = compact combo card)."

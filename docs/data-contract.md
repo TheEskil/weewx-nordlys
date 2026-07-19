@@ -180,7 +180,10 @@ and the front-end fetches it.
                   "page": "week-2026-07-13.html" } ],   // no NOAA for weeks
     "months": [ { "id": "2026-07", "label": "July 2026", "month": "Jul",
                   "year": "2026", "page": "month-2026-07.html",
-                  "noaa": "NOAA/NOAA-2026-07.txt" } ],
+                  "noaa": "NOAA/NOAA-2026-07.txt",
+                  // at-a-glance period stats (reports tile `stats` option):
+                  "stats": [ { "obs": "outTemp", "value": 12.6, "unit": "°C",
+                               "decimals": 1, "aggregate": "avg" }, … ] } ],
     "years":  [ { "id": "2026", "label": "2026", "page": "year-2026.html",
                   "noaa": "NOAA/NOAA-2026.txt" } ]
   }
