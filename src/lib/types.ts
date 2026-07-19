@@ -113,6 +113,32 @@ export interface AlmanacData {
   always_down?: boolean
   moon_phase: string
   moon_fullness: number
+  /** pyephem present: the Celestial-page sections below are populated */
+  hasExtras?: boolean
+  // --- extras (require ephem) ---
+  transit?: string | null
+  sun_alt?: number
+  sun_az?: number
+  /** minutes from local midnight at report time (sun-path marker) */
+  sun_now?: number
+  /** change in day length vs yesterday, seconds (negative = shorter) */
+  day_length_delta?: number
+  twilight?: {
+    civil?: [string | null, string | null]
+    nautical?: [string | null, string | null]
+    astronomical?: [string | null, string | null]
+  }
+  /** [minutes-from-midnight, solar altitude °] every 30 min */
+  sun_path?: [number, number][]
+  moonrise?: string | null
+  moonset?: string | null
+  next_full_moon?: string | null
+  next_new_moon?: string | null
+  seasons?: {
+    equinox?: { date: string; days: number }
+    solstice?: { date: string; days: number; kind: 'summer' | 'winter' }
+  }
+  planets?: { name: string; rise: string | null; set: string | null }[]
 }
 
 export interface ForecastData {

@@ -362,6 +362,21 @@ def _collect_tile_types(pages):
     return {tile.get('type') for tile in _tiles(pages)}
 
 
+_CELESTIAL_SECTIONS = {'sun', 'sunpath', 'moon', 'seasons', 'planets'}
+
+
+def _celestial_sections(pages):
+    """Celestial sections any tile references (the bare combo tile has
+    none). Non-empty means the extended, ephem-only almanac is needed."""
+    sections = set()
+    for tile in _tiles(pages):
+        if tile.get('type') == 'celestial':
+            section = (tile.get('options') or {}).get('section')
+            if section:
+                sections.add(section)
+    return sections
+
+
 def _gen_week_spans(start_ts, stop_ts, week_start=6):
     """Yield weekly TimeSpans covering [start_ts, stop_ts], honoring the
     station's week_start (like weeutil's genMonthSpans for months)."""
@@ -467,6 +482,14 @@ def _validate_tile(page_id, tile):
         warnings.append(
             f"{where}: {tile_type} tile ignores obs '{obs[0]}'"
         )
+
+    if tile_type == 'celestial' and options.get('section'):
+        section = options['section']
+        if section not in _CELESTIAL_SECTIONS:
+            warnings.append(
+                f"{where}: unknown celestial section '{section}' "
+                f"(expected one of {', '.join(sorted(_CELESTIAL_SECTIONS))})"
+            )
 
     # Period stat tiles read from stats[span]; validate the span.
     if tile_type == 'stat' and options.get('span'):
@@ -671,7 +694,7 @@ class NordlysSearchList(SearchList):
                 nordlys_dict, tile_types, calendar_needs, db_lookup, empty_obs
             )
             almanac = (
-                self._almanac_data(db_lookup)
+                self._almanac_data(db_lookup, bool(_celestial_sections(pages)))
                 if 'celestial' in tile_types
                 else None
             )
@@ -1279,14 +1302,13 @@ class NordlysSearchList(SearchList):
     # ------------------------------------------------------------------
     # almanac & forecast
 
-    def _almanac_data(self, db_lookup):
+    def _almanac_data(self, db_lookup, wants_extras=False):
         db_manager = db_lookup()
         last_ts = db_manager.lastGoodStamp() or int(time.time())
         stn = self.generator.stn_info
+        lat, lon = stn.latitude_f, stn.longitude_f
         try:
-            almanac = weewx.almanac.Almanac(
-                last_ts, stn.latitude_f, stn.longitude_f
-            )
+            almanac = weewx.almanac.Almanac(last_ts, lat, lon)
             sunrise = almanac.sunrise.raw
             sunset = almanac.sunset.raw
             entry = {
@@ -1294,6 +1316,7 @@ class NordlysSearchList(SearchList):
                 'sunset': self._clock(sunset),
                 'moon_phase': almanac.moon_phase,
                 'moon_fullness': almanac.moon_fullness,
+                'hasExtras': bool(almanac.hasExtras),
             }
         except Exception:
             return None
@@ -1306,14 +1329,138 @@ class NordlysSearchList(SearchList):
             # night; flipped south of the equator.
             month = time.localtime(last_ts).tm_mon
             summer = 4 <= month <= 9
-            north = stn.latitude_f >= 0
+            north = lat >= 0
             entry['always_up'] = summer == north
             entry['always_down'] = not entry['always_up']
+
+        # The Celestial-page sections (sun path, twilight, seasons,
+        # planets, moon times) need pyephem; compute only when a sectioned
+        # celestial tile asks for them.
+        if wants_extras and entry['hasExtras']:
+            try:
+                entry.update(self._almanac_extras(last_ts, lat, lon))
+            except Exception:
+                pass
         return entry
+
+    def _almanac_extras(self, ts, lat, lon):
+        a = weewx.almanac.Almanac(ts, lat, lon)
+        lt = time.localtime(ts)
+        extras = {'sun_now': lt.tm_hour * 60 + lt.tm_min}
+        for key, value in (
+            ('transit', lambda: self._clock(a.sun.transit.raw)),
+            ('sun_alt', lambda: round(a.sun.alt, 1)),
+            ('sun_az', lambda: round(a.sun.az, 1)),
+            ('moonrise', lambda: self._clock(a.moon.rise.raw)),
+            ('moonset', lambda: self._clock(a.moon.set.raw)),
+            ('next_full_moon', lambda: self._date(a.next_full_moon.raw)),
+            ('next_new_moon', lambda: self._date(a.next_new_moon.raw)),
+        ):
+            try:
+                extras[key] = value()
+            except Exception:
+                pass
+
+        delta = self._day_length_delta(ts, lat, lon)
+        if delta is not None:
+            extras['day_length_delta'] = delta
+
+        twilight = {}
+        for name, depth in (
+            ('civil', -6), ('nautical', -12), ('astronomical', -18)
+        ):
+            try:
+                t = weewx.almanac.Almanac(
+                    ts, lat, lon, horizon=depth, use_center=1
+                )
+                twilight[name] = [
+                    self._clock(t.sun.rise.raw), self._clock(t.sun.set.raw)
+                ]
+            except Exception:
+                twilight[name] = [None, None]
+        extras['twilight'] = twilight
+        extras['sun_path'] = self._sun_path(ts, lat, lon)
+        extras['seasons'] = self._seasons(a, ts, lat)
+        extras['planets'] = self._planets(a)
+        return extras
+
+    def _day_length_delta(self, ts, lat, lon):
+        today = self._day_length(ts, lat, lon)
+        yesterday = self._day_length(ts - 86400, lat, lon)
+        if today is None or yesterday is None:
+            return None
+        return int(today - yesterday)
+
+    @staticmethod
+    def _day_length(ts, lat, lon):
+        a = weewx.almanac.Almanac(ts, lat, lon)
+        rise, set_ = a.sunrise.raw, a.sunset.raw
+        if rise and set_ and set_ > rise:
+            return set_ - rise
+        return None
+
+    @staticmethod
+    def _sun_path(ts, lat, lon):
+        """Solar altitude every 30 min through the local day, for the
+        sun-path arc: [[minutes-from-midnight, altitude-deg], ...]."""
+        day_start = startOfDay(ts)
+        path = []
+        for minutes in range(0, 24 * 60 + 1, 30):
+            try:
+                alt = weewx.almanac.Almanac(
+                    day_start + minutes * 60, lat, lon
+                ).sun.alt
+                path.append([minutes, round(alt, 1)])
+            except Exception:
+                continue
+        return path
+
+    def _seasons(self, a, ts, lat):
+        seasons = {}
+        try:
+            eq = a.next_equinox.raw
+            seasons['equinox'] = {
+                'date': self._date(eq), 'days': int((eq - ts) // 86400)
+            }
+        except Exception:
+            pass
+        try:
+            sol = a.next_solstice.raw
+            # June solstice is the year's longest day in the north (summer),
+            # shortest in the south; December is the reverse.
+            june = time.localtime(sol).tm_mon in (5, 6, 7)
+            kind = 'summer' if june == (lat >= 0) else 'winter'
+            seasons['solstice'] = {
+                'date': self._date(sol),
+                'days': int((sol - ts) // 86400),
+                'kind': kind,
+            }
+        except Exception:
+            pass
+        return seasons
+
+    def _planets(self, a):
+        planets = []
+        for name in ('Venus', 'Mars', 'Jupiter', 'Saturn'):
+            body = getattr(a, name.lower(), None)
+            if body is None:
+                continue
+            try:
+                rise = self._clock(body.rise.raw)
+                set_ = self._clock(body.set.raw)
+            except Exception:
+                rise = set_ = None
+            if rise or set_:
+                planets.append({'name': name, 'rise': rise, 'set': set_})
+        return planets
 
     @staticmethod
     def _clock(ts):
         return time.strftime('%H:%M', time.localtime(ts)) if ts else None
+
+    @staticmethod
+    def _date(ts):
+        return time.strftime('%d %b %Y', time.localtime(ts)) if ts else None
 
     def _forecast_data(self, db_lookup):
         db_manager = db_lookup()

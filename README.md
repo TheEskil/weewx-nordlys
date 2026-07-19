@@ -82,6 +82,11 @@ The report is generated under `HTML_ROOT/nordlys/`. Configure everything
 in `skin.conf` (or override from weewx.conf) - see the
 [configuration reference](docs/config-reference.md).
 
+For the full Celestial page (sun path, twilight, moon and planet times,
+seasons) install the optional `ephem` package: `pip install ephem`.
+Without it the celestial tiles still show sunrise/sunset, day length and
+moon phase.
+
 ## Tests
 
 ```sh

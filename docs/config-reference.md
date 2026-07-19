@@ -143,7 +143,7 @@ addressable by `#<page-id>`, so those return links land on the right tab.
 | `chart` | uPlot chart, wind rose, or calendar heatmap | `obs` (except windrose/calendar) |
 | `table` | stats table or archive records table | `obs` list |
 | `climatology` | the `[[climatological_days]]` counts | - |
-| `celestial` | sun rise/set, day length, moon phase | - |
+| `celestial` | sun/moon combo, or one almanac `section` | - |
 | `forecast` | Zambretti pressure forecast | - |
 | `reports` | links to all archive pages + NOAA reports | - |
 | `text` | a static text tile (`title`) | - |
@@ -210,6 +210,18 @@ is no trend or live update. Without a span it shows current conditions.
 `stats` shows min/avg/max with times (rain: total + wettest day).
 `records` is a sortable, paginated table of raw archive records built
 from the same series data the charts use.
+
+**celestial**
+
+```ini
+    section = sunpath    # sun | sunpath | moon | seasons | planets
+```
+
+A bare `celestial` tile (no `section`) is the compact sun-and-moon combo
+card. With a `section` it renders one detailed panel - the Celestial page
+lays out all five. Everything beyond sunrise/sunset/phase (sun path,
+twilight, moon and planet rise/set, seasons) needs the optional `ephem`
+Python package; without it those panels show the basic data plus a hint.
 
 ## `[[archive]]` - archive pages
 

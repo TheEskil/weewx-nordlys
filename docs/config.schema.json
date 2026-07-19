@@ -115,6 +115,10 @@
         },
         "table": { "enum": ["stats", "records"] },
         "aggregate": { "enum": ["avg", "min", "max", "sum"] },
+        "section": {
+          "enum": ["sun", "sunpath", "moon", "seasons", "planets"],
+          "description": "celestial tile: which almanac section to render (bare tile = compact combo card)."
+        },
         "bands": {
           "type": "array",
           "items": { "type": "number" },

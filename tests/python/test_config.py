@@ -26,6 +26,7 @@ from weeutil.weeutil import archiveMonthSpan, archiveWeekSpan  # noqa: E402
 from nordlys import (  # noqa: E402
     NordlysSearchList,
     _all_obs,
+    _celestial_sections,
     _coerce,
     _detect_period,
     _gen_week_spans,
@@ -709,6 +710,33 @@ class TestValidateClimoDays(unittest.TestCase):
         # must not produce warnings.
         definitions = {'ice_days': {'enable': False}}
         self.assertEqual(validate_climo_days(definitions), [])
+
+
+class TestCelestialSections(unittest.TestCase):
+    def _pages(self, tiles):
+        return [{'layout': [{'tiles': tiles}]}]
+
+    def test_bare_celestial_has_no_sections(self):
+        pages = self._pages([{'type': 'celestial'}])
+        self.assertEqual(_celestial_sections(pages), set())
+
+    def test_sections_collected(self):
+        pages = self._pages(
+            [
+                {'type': 'celestial', 'options': {'section': 'sunpath'}},
+                {'type': 'celestial', 'options': {'section': 'moon'}},
+            ]
+        )
+        self.assertEqual(_celestial_sections(pages), {'sunpath', 'moon'})
+
+    def test_valid_and_invalid_section(self):
+        good = {'pages': [{'id': 'c', 'title': 'C', 'layout': [{'tiles': [
+            {'type': 'celestial', 'options': {'section': 'planets'}}]}]}]}
+        self.assertEqual(validate_config(good), [])
+        bad = {'pages': [{'id': 'c', 'title': 'C', 'layout': [{'tiles': [
+            {'type': 'celestial', 'options': {'section': 'comets'}}]}]}]}
+        warnings = validate_config(bad)
+        self.assertTrue(any("celestial section 'comets'" in w for w in warnings))
 
 
 if __name__ == '__main__':
