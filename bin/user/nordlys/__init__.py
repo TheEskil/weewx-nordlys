@@ -261,6 +261,79 @@ def _formats_config(section):
     return formats
 
 
+# Archive-page filename per period kind (matches the templates).
+_ARCHIVE_PAGE_BY_KIND = {
+    'week': _ARCHIVE_WEEK_PAGE,
+    'month': _ARCHIVE_MONTH_PAGE,
+    'year': _ARCHIVE_YEAR_PAGE,
+}
+
+
+def _seo_config(section):
+    """SEO settings with defaults; section is a ConfigObj section or {}."""
+    seo = {'image': 'og-image.png', 'locale': 'en', 'robots': True}
+    if hasattr(section, 'scalars'):
+        seo.update(_section_items(section))
+    return seo
+
+
+def _base_url(seo, stn_info):
+    """Absolute site root: [[seo]] base_url, else weewx station_url, else
+    '' (absolute-only tags are then skipped)."""
+    url = seo.get('base_url') or getattr(stn_info, 'station_url', '') or ''
+    return str(url).rstrip('/')
+
+
+def _html_attr(value):
+    """Escape a string for use in an HTML attribute value."""
+    return (
+        str(value)
+        .replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;')
+        .replace('"', '&quot;')
+    )
+
+
+def _seo_meta(page_title, canonical, seo, base_url, site_name, location,
+              period_label=None):
+    """The per-page SEO/OpenGraph fields for a shell template."""
+    if seo.get('description'):
+        description = seo['description']
+    elif period_label:
+        description = f'Weather archive for {location} - {period_label}.'
+    else:
+        description = (
+            f'{page_title} - live weather for {location}: current '
+            f'conditions, charts and records.'
+        )
+    image = seo.get('image', 'og-image.png')
+    return {
+        'description': _html_attr(description),
+        'title': _html_attr(f'{page_title} · {location}'),
+        'site_name': _html_attr(site_name),
+        # og:url is absolute-only; empty tells the template to omit it.
+        'url': _html_attr(f'{base_url}/{canonical}') if base_url else '',
+        'image': _html_attr(f'{base_url}/{image}' if base_url else image),
+        'locale': _html_attr(seo.get('locale', 'en')),
+    }
+
+
+def _sitemap_urls(base_url, live_pages, archives, lastmod):
+    """Absolute URLs for every canonical page + archive page, or [] when
+    no base URL is resolvable."""
+    if not base_url:
+        return []
+    urls = []
+    for index, page in enumerate(live_pages):
+        name = 'index.html' if index == 0 else f"{page['id']}.html"
+        urls.append({'loc': f'{base_url}/{name}', 'lastmod': lastmod})
+    for group in ('weeks', 'months', 'years'):
+        for entry in (archives or {}).get(group, []):
+            urls.append({'loc': f"{base_url}/{entry['page']}", 'lastmod': lastmod})
+    return urls
+
+
 def _tiles(pages):
     for page in pages:
         for row in page['layout']:
@@ -644,7 +717,15 @@ class NordlysSearchList(SearchList):
             else {}
         )
 
-        config = {'pages': [], 'formats': self._formats}
+        seo = _seo_config(
+            nordlys_dict['seo']
+            if 'seo' in getattr(nordlys_dict, 'sections', [])
+            else {}
+        )
+        base_url = _base_url(seo, stn_info)
+        site_name = nordlys_dict.get('site_name', stn_info.location)
+
+        config = {'pages': [], 'formats': self._formats, 'seo': seo}
         if 'theme' in getattr(nordlys_dict, 'sections', []):
             config['theme'] = _theme_config(nordlys_dict['theme'])
         if 'pages' in getattr(nordlys_dict, 'sections', []):
@@ -795,6 +876,34 @@ class NordlysSearchList(SearchList):
             'archives': archives,
         }
 
+        # SEO / OpenGraph for the current page context. The page generator
+        # overrides nordlys_seo per live page; the archive templates use
+        # this period-scoped one.
+        if period:
+            canonical = time.strftime(
+                _ARCHIVE_PAGE_BY_KIND[period_kind],
+                time.localtime(timespan.start),
+            )
+            seo_meta = _seo_meta(
+                label, canonical, seo, base_url, site_name,
+                stn_info.location, period_label=label,
+            )
+        else:
+            seo_meta = _seo_meta(
+                stn_info.location, 'index.html', seo, base_url, site_name,
+                stn_info.location,
+            )
+        robots_on = bool(seo.get('robots', True))
+        lastmod = time.strftime('%Y-%m-%d', time.localtime())
+        sitemap = (
+            _sitemap_urls(base_url, live_pages, archives, lastmod)
+            if robots_on
+            else []
+        )
+        jsonld = json.dumps(
+            self._jsonld(site_name, stn_info, base_url), ensure_ascii=False
+        ).replace('</', '<\\/')
+
         # Escape "</" so the payload is safe inside a <script> element.
         nordlys_json = json.dumps(payload, ensure_ascii=False).replace('</', '<\\/')
         # Standalone per-year climate slice for climate-<year>.json.
@@ -811,6 +920,12 @@ class NordlysSearchList(SearchList):
                 'nordlys_current': current,
                 # Skin theme mode for the no-flash <head> bootstrap.
                 'nordlys_theme_mode': config.get('theme', {}).get('mode', 'auto'),
+                # SEO / OpenGraph (per-page), sitemap + robots inputs.
+                'nordlys_seo': seo_meta,
+                'nordlys_jsonld': jsonld,
+                'nordlys_base_url': base_url,
+                'nordlys_sitemap': sitemap,
+                'nordlys_robots': robots_on,
                 # Optional user stylesheet (path relative to HTML_ROOT).
                 'nordlys_user_css': nordlys_dict.get('user_css', ''),
             }
@@ -1689,6 +1804,28 @@ class NordlysSearchList(SearchList):
         if stats:
             entry['stats'] = stats
 
+    @staticmethod
+    def _jsonld(site_name, stn_info, base_url):
+        """schema.org WebSite + Place structured data for the site."""
+        website = {'@type': 'WebSite', 'name': site_name}
+        if base_url:
+            website['url'] = base_url + '/'
+        return {
+            '@context': 'https://schema.org',
+            '@graph': [
+                website,
+                {
+                    '@type': 'Place',
+                    'name': stn_info.location,
+                    'geo': {
+                        '@type': 'GeoCoordinates',
+                        'latitude': stn_info.latitude_f,
+                        'longitude': stn_info.longitude_f,
+                    },
+                },
+            ],
+        }
+
     def _format_altitude(self, altitude_vt):
         converted = self.generator.converter.convert(altitude_vt)
         label = self.generator.formatter.get_label_string(
@@ -1765,11 +1902,17 @@ class NordlysPageGenerator(weewx.cheetahgenerator.CheetahGenerator):
             return
         timespan = TimeSpan(db.firstGoodStamp(), last_ts)
 
-        pages_section = self.skin_dict.get('Nordlys', {}).get('pages', {})
+        nordlys = self.skin_dict.get('Nordlys', {})
+        pages_section = nordlys.get('pages', {})
         page_ids = list(getattr(pages_section, 'sections', []))
         if not page_ids:
             self.teardown()
             return
+
+        seo = _seo_config(nordlys.get('seo', {}))
+        base_url = _base_url(seo, self.stn_info)
+        location = self.stn_info.location
+        site_name = nordlys.get('site_name', location)
 
         # Build the (expensive) shared search list once, then render the
         # shell per page with just the page context prepended.
@@ -1780,7 +1923,11 @@ class NordlysPageGenerator(weewx.cheetahgenerator.CheetahGenerator):
             title = pages_section[page_id].get('title', page_id)
             filename = 'index.html' if index == 0 else f'{page_id}.html'
             page_ctx = {
-                'nordlys_page': {'id': page_id, 'title': title, 'canonical': filename}
+                'nordlys_page': {'id': page_id, 'title': title, 'canonical': filename},
+                # Per-page SEO overrides the SLE's site-default nordlys_seo.
+                'nordlys_seo': _seo_meta(
+                    title, filename, seo, base_url, site_name, location
+                ),
             }
             try:
                 compiled = Cheetah.Template.Template(

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+## Absolute URLs for every canonical page + archive page. Empty when no
+## base URL is resolvable ([[seo]] base_url or [Station] station_url).
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+#for $entry in $nordlys_sitemap
+  <url><loc>$entry.loc</loc><lastmod>$entry.lastmod</lastmod></url>
+#end for
+</urlset>

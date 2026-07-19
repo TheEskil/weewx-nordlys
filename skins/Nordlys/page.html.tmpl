@@ -6,6 +6,21 @@
     <meta name="color-scheme" content="dark light" />
     <title>$nordlys_page.title · $station.location</title>
     <link rel="canonical" href="$nordlys_page.canonical" />
+    <meta name="description" content="$nordlys_seo.description" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="$nordlys_seo.site_name" />
+    <meta property="og:title" content="$nordlys_seo.title" />
+    <meta property="og:description" content="$nordlys_seo.description" />
+    #if $nordlys_seo.url
+    <meta property="og:url" content="$nordlys_seo.url" />
+    #end if
+    <meta property="og:image" content="$nordlys_seo.image" />
+    <meta property="og:locale" content="$nordlys_seo.locale" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="$nordlys_seo.title" />
+    <meta name="twitter:description" content="$nordlys_seo.description" />
+    <meta name="twitter:image" content="$nordlys_seo.image" />
+    <script type="application/ld+json">$nordlys_jsonld</script>
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="nordlys.webmanifest" />
     <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />

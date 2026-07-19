@@ -1,0 +1,10 @@
+#if $nordlys_robots
+User-agent: *
+Allow: /
+#if $nordlys_base_url
+Sitemap: $nordlys_base_url/sitemap.xml
+#end if
+#else
+User-agent: *
+Disallow: /
+#end if

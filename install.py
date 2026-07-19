@@ -36,8 +36,11 @@ class NordlysInstaller(ExtensionInstaller):
                         'skins/Nordlys/year-%Y.html.tmpl',
                         'skins/Nordlys/climate-%Y.json.tmpl',
                         'skins/Nordlys/nordlys.webmanifest.tmpl',
+                        'skins/Nordlys/robots.txt.tmpl',
+                        'skins/Nordlys/sitemap.xml.tmpl',
                         'skins/Nordlys/sw.js',
                         'skins/Nordlys/icon.svg',
+                        'skins/Nordlys/og-image.png',
                     ],
                 ),
                 (

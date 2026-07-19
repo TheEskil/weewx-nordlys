@@ -43,6 +43,21 @@
         "weekday_time": { "type": "string" }
       },
       "additionalProperties": false
+    },
+    "seo": {
+      "type": "object",
+      "description": "Search & social sharing (meta descriptions, OpenGraph, robots/sitemap).",
+      "properties": {
+        "base_url": {
+          "type": "string",
+          "description": "Absolute site root for og:url/og:image and sitemap.xml; falls back to [Station] station_url."
+        },
+        "description": { "type": "string" },
+        "image": { "type": "string" },
+        "locale": { "type": "string" },
+        "robots": { "type": "boolean" }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true,
