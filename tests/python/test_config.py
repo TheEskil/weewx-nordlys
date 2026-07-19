@@ -28,6 +28,7 @@ from nordlys import (  # noqa: E402
     _all_obs,
     _celestial_sections,
     _coerce,
+    _reports_stats_obs,
     _detect_period,
     _gen_week_spans,
     _period_meta,
@@ -737,6 +738,26 @@ class TestCelestialSections(unittest.TestCase):
             {'type': 'celestial', 'options': {'section': 'comets'}}]}]}]}
         warnings = validate_config(bad)
         self.assertTrue(any("celestial section 'comets'" in w for w in warnings))
+
+
+class TestReportsStatsObs(unittest.TestCase):
+    def test_collects_stats_list(self):
+        pages = [{'layout': [{'tiles': [
+            {'type': 'reports', 'options': {'stats': ['outTemp', 'rain']}},
+        ]}]}]
+        self.assertEqual(_reports_stats_obs(pages), ['outTemp', 'rain'])
+
+    def test_scalar_stats_wrapped(self):
+        pages = [{'layout': [{'tiles': [
+            {'type': 'reports', 'options': {'stats': 'outTemp'}},
+        ]}]}]
+        self.assertEqual(_reports_stats_obs(pages), ['outTemp'])
+
+    def test_no_reports_or_no_stats(self):
+        self.assertEqual(_reports_stats_obs([{'layout': [{'tiles': [
+            {'type': 'reports'}]}]}]), [])
+        self.assertEqual(_reports_stats_obs([{'layout': [{'tiles': [
+            {'type': 'stat', 'obs': 'outTemp'}]}]}]), [])
 
 
 if __name__ == '__main__':

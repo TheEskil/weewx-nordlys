@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ArchiveLink, NordlysPayload } from '../lib/types'
+  import { formatValue } from '../lib/format'
 
   let { payload }: { payload: NordlysPayload } = $props()
 
@@ -14,31 +15,34 @@
     }))
   })
 
-  function monthsOf(
-    months: ArchiveLink[],
-    kind: 'page' | 'noaa',
-  ): { label: string; href: string; id: string }[] {
-    return months.map((m) => ({
-      label: m.month ?? m.id,
-      // Months always carry a NOAA path; fall back to the page defensively.
-      href: kind === 'page' ? m.page : (m.noaa ?? m.page),
-      id: m.id,
-    }))
+  function miniStats(link: ArchiveLink): string {
+    return (link.stats ?? [])
+      .map((s) => {
+        const v = formatValue(s.value, s.decimals)
+        return s.unit ? `${v} ${s.unit}` : v
+      })
+      .join(' · ')
   }
 </script>
 
 {#if grouped.length > 0}
   <div class="sections">
     <section>
-      <h4>Archive pages</h4>
+      <h4>Period browser</h4>
       {#each grouped as { year, months } (year.id)}
-        <div class="row">
-          <a class="year nl-num" href={year.page}>{year.label}</a>
-          <span class="months">
-            {#each monthsOf(months, 'page') as m (m.id)}
-              <a href={m.href}>{m.label}</a>
+        <div class="period">
+          <div class="period-head">
+            <a class="year nl-num" href={year.page}>{year.label}</a>
+            {#if year.stats}<span class="mini nl-num">{miniStats(year)}</span>{/if}
+          </div>
+          <div class="cells">
+            {#each months as m (m.id)}
+              <a class="cell" href={m.page}>
+                <span class="cell-label">{m.month ?? m.label}</span>
+                {#if m.stats}<span class="mini nl-num">{miniStats(m)}</span>{/if}
+              </a>
             {/each}
-          </span>
+          </div>
         </div>
       {/each}
     </section>
@@ -46,10 +50,10 @@
       <h4>NOAA reports</h4>
       {#each grouped as { year, months } (year.id)}
         <div class="row">
-          <a class="year nl-num" href={year.noaa}>{year.label}</a>
+          {#if year.noaa}<a class="year nl-num" href={year.noaa}>{year.label}</a>{/if}
           <span class="months">
-            {#each monthsOf(months, 'noaa') as m (m.id)}
-              <a href={m.href}>{m.label}</a>
+            {#each months as m (m.id)}
+              {#if m.noaa}<a href={m.noaa}>{m.month ?? m.label}</a>{/if}
             {/each}
           </span>
         </div>
@@ -64,7 +68,7 @@
   .sections {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--nl-space-2) var(--nl-space-4);
+    gap: var(--nl-space-3) var(--nl-space-4);
   }
 
   h4 {
@@ -76,6 +80,56 @@
     margin-bottom: var(--nl-space-1);
   }
 
+  .period + .period {
+    margin-top: var(--nl-space-2);
+    border-top: 1px solid var(--nl-border);
+    padding-top: var(--nl-space-2);
+  }
+
+  .period-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--nl-space-2);
+  }
+
+  .cells {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: var(--nl-space-1);
+    margin-top: var(--nl-space-1);
+  }
+
+  .cell {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: var(--nl-space-0) var(--nl-space-1);
+    border: 1px solid var(--nl-border);
+    border-radius: var(--nl-radius);
+    text-decoration: none;
+    color: var(--nl-text);
+  }
+
+  .cell:hover {
+    border-color: var(--nl-accent);
+  }
+
+  .cell-label {
+    font-weight: 500;
+    font-size: var(--nl-fs-sm);
+  }
+
+  .mini {
+    color: var(--nl-text-dim);
+    font-size: var(--nl-fs-sm);
+  }
+
+  .year {
+    font-weight: 600;
+    min-width: 3.5em;
+  }
+
   .row {
     display: flex;
     align-items: baseline;
@@ -85,11 +139,6 @@
 
   .row + .row {
     border-top: 1px solid var(--nl-border);
-  }
-
-  .year {
-    font-weight: 600;
-    min-width: 3.5em;
   }
 
   .months {
