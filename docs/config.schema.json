@@ -42,6 +42,10 @@
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },
+        "picker": {
+          "enum": ["week", "month", "year"],
+          "description": "Add a period dropdown to jump to past weeks/months/years."
+        },
         "layout": {
           "type": "array",
           "items": { "$ref": "#/$defs/row" }

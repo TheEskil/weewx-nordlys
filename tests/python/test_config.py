@@ -21,12 +21,17 @@ sys.path.insert(
 
 import weewx  # noqa: E402
 import weewx.xtypes  # noqa: E402
+from weeutil.weeutil import archiveMonthSpan, archiveWeekSpan  # noqa: E402
 
 from nordlys import (  # noqa: E402
     NordlysSearchList,
     _all_obs,
     _coerce,
+    _detect_period,
+    _gen_week_spans,
+    _period_meta,
     _span_timespan,
+    _week_label,
     _collect_chart_needs,
     _collect_obs,
     _collect_stats_needs,
@@ -345,6 +350,40 @@ class TestSpanTimespan(unittest.TestCase):
         self.assertIsNone(_span_timespan('decade', self.TS))
 
 
+class TestArchivePeriods(unittest.TestCase):
+    def test_gen_week_spans_covers_range(self):
+        start = int(time.mktime((2026, 7, 1, 0, 0, 0, 0, 0, -1)))
+        stop = int(time.mktime((2026, 7, 20, 12, 0, 0, 0, 0, -1)))
+        spans = list(_gen_week_spans(start, stop, week_start=6))
+        self.assertGreaterEqual(len(spans), 3)
+        # Contiguous, week-length, covering the whole range.
+        for a, b in zip(spans, spans[1:]):
+            self.assertEqual(a.stop, b.start)
+        self.assertLessEqual(spans[0].start, start)
+        self.assertGreater(spans[-1].stop, stop - 86400)
+
+    def test_detect_period_week(self):
+        mid = int(time.mktime((2026, 7, 15, 12, 0, 0, 0, 0, -1)))
+        week = archiveWeekSpan(mid, startOfWeek=6)
+        self.assertEqual(_detect_period(week, week_start=6), 'week')
+
+    def test_detect_period_month_not_week(self):
+        mid = int(time.mktime((2026, 7, 15, 12, 0, 0, 0, 0, -1)))
+        month = archiveMonthSpan(mid)
+        self.assertEqual(_detect_period(month, week_start=6), 'month')
+
+    def test_period_meta_ids(self):
+        ts = int(time.mktime((2026, 7, 13, 0, 0, 0, 0, 0, -1)))
+        self.assertEqual(_period_meta('week', ts, 6)[0], '2026-07-13')
+        self.assertEqual(_period_meta('month', ts, 6), ('2026-07', 'July 2026'))
+        self.assertEqual(_period_meta('year', ts, 6), ('2026', '2026'))
+
+    def test_week_label_monday_vs_other_start(self):
+        mon = time.localtime(int(time.mktime((2026, 7, 13, 0, 0, 0, 0, 0, -1))))
+        self.assertIn('Week', _week_label(mon, week_start=0))
+        self.assertTrue(_week_label(mon, week_start=6).startswith('Week of'))
+
+
 class TestCollectChartNeeds(unittest.TestCase):
     def test_series_and_rose_split_by_span(self):
         pages = [
@@ -540,6 +579,15 @@ class TestValidateConfig(unittest.TestCase):
             self.assertEqual(
                 validate_config(config), [], f'{span} should be a valid chart span'
             )
+
+    def test_picker_valid_and_invalid(self):
+        good = {'pages': [{'id': 'week', 'title': 'Week', 'picker': 'week',
+                           'layout': [{'tiles': [{'type': 'celestial'}]}]}]}
+        self.assertEqual(validate_config(good), [])
+        bad = {'pages': [{'id': 'week', 'title': 'Week', 'picker': 'fortnight',
+                          'layout': [{'tiles': [{'type': 'celestial'}]}]}]}
+        warnings = validate_config(bad)
+        self.assertTrue(any("picker 'fortnight'" in w for w in warnings))
 
     def test_empty_pages_warns(self):
         self.assertTrue(validate_config({'pages': []}))

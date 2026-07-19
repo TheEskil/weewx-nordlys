@@ -20,7 +20,8 @@
   ): { label: string; href: string; id: string }[] {
     return months.map((m) => ({
       label: m.month ?? m.id,
-      href: kind === 'page' ? m.page : m.noaa,
+      // Months always carry a NOAA path; fall back to the page defensively.
+      href: kind === 'page' ? m.page : (m.noaa ?? m.page),
       id: m.id,
     }))
   }

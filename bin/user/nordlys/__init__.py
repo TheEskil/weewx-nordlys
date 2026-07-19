@@ -6,6 +6,7 @@ Python <-> JS data contract, version 1 (see docs/data-contract.md and
 src/lib/types.ts).
 """
 
+import functools
 import json
 import logging
 import re
@@ -13,6 +14,7 @@ import time
 from bisect import bisect_right
 
 import weewx.almanac
+import weewx.cheetahgenerator
 import weewx.units
 import weewx.xtypes
 from weeutil.weeutil import (
@@ -111,13 +113,16 @@ _STATS_TIME_FORMAT = {
 
 # Archive (SummaryBy) pages: the 'archive' span resolves to the page's
 # own period, with these aggregation intervals.
-_PERIOD_AGG_INTERVAL = {'month': 10800, 'year': 86400}
+_PERIOD_AGG_INTERVAL = {'week': 3600, 'month': 10800, 'year': 86400}
 # Default filename patterns for archive pages and NOAA reports; must
 # match the template names configured in skin.conf.
+_ARCHIVE_WEEK_PAGE = 'week-%Y-%m-%d.html'
 _ARCHIVE_MONTH_PAGE = 'month-%Y-%m.html'
 _ARCHIVE_YEAR_PAGE = 'year-%Y.html'
 _NOAA_MONTH_FILE = 'NOAA/NOAA-%Y-%m.txt'
 _NOAA_YEAR_FILE = 'NOAA/NOAA-%Y.txt'
+# Page-level period picker kinds.
+_PICKER_KINDS = {'week', 'month', 'year'}
 
 # Zambretti forecaster (public-domain 1915 device mapping). The pressure
 # range 947-1050 hPa is normalized to an index into the trend tables.
@@ -214,6 +219,8 @@ def _page_config(page_id, section):
         layout.append(row)
     page = {'id': page_id, 'layout': layout}
     page['title'] = section.get('title', page_id)
+    if 'picker' in section:
+        page['picker'] = section['picker']
     return page
 
 
@@ -355,19 +362,50 @@ def _collect_tile_types(pages):
     return {tile.get('type') for tile in _tiles(pages)}
 
 
-def _detect_period(timespan):
-    """'month'/'year' when the timespan is exactly a calendar period
-    (i.e. a SummaryBy page is being generated), else None.
+def _gen_week_spans(start_ts, stop_ts, week_start=6):
+    """Yield weekly TimeSpans covering [start_ts, stop_ts], honoring the
+    station's week_start (like weeutil's genMonthSpans for months)."""
+    span = archiveWeekSpan(start_ts, startOfWeek=week_start)
+    while span.start < stop_ts:
+        yield span
+        # Step just past the boundary so DST never lands us back in place.
+        span = archiveWeekSpan(span.stop + 3600, startOfWeek=week_start)
+
+
+def _detect_period(timespan, week_start=6):
+    """'week'/'month'/'year' when the timespan is exactly a calendar
+    period (i.e. an archive page is being generated), else None.
 
     Compared via the period containing the timespan's midpoint, so
-    boundary conventions don't matter.
+    boundary conventions don't matter. Week is checked first; a week span
+    is shorter than a month/year and never collides with them.
     """
     midpoint = (timespan.start + timespan.stop) // 2
+    if timespan == archiveWeekSpan(midpoint, startOfWeek=week_start):
+        return 'week'
     if timespan == archiveMonthSpan(midpoint):
         return 'month'
     if timespan == archiveYearSpan(midpoint):
         return 'year'
     return None
+
+
+def _period_meta(period_kind, start_ts, week_start=6):
+    """(id, label) for an archive period, matching the archives index."""
+    start = time.localtime(start_ts)
+    if period_kind == 'week':
+        return time.strftime('%Y-%m-%d', start), _week_label(start, week_start)
+    if period_kind == 'month':
+        return time.strftime('%Y-%m', start), time.strftime('%B %Y', start)
+    return time.strftime('%Y', start), time.strftime('%Y', start)
+
+
+def _week_label(start_tt, week_start):
+    """Monday-start weeks read as ISO week numbers; other starts, which
+    have no standard numbering, read as 'Week of <date>'."""
+    if week_start == 0:
+        return time.strftime('Week %V, %G', start_tt)
+    return time.strftime('Week of %d %b %Y', start_tt)
 
 
 def validate_config(config):
@@ -388,6 +426,12 @@ def validate_config(config):
         warnings.append('no pages configured under [[pages]]')
     for page in pages:
         page_id = page.get('id', '?')
+        picker = page.get('picker')
+        if picker is not None and picker not in _PICKER_KINDS:
+            warnings.append(
+                f"page '{page_id}': picker '{picker}' is not one of "
+                f"{', '.join(sorted(_PICKER_KINDS))}"
+            )
         if not page.get('layout'):
             warnings.append(f"page '{page_id}' has no rows")
         for row in page.get('layout', []):
@@ -543,9 +587,10 @@ class NordlysSearchList(SearchList):
             if live.get('broker'):
                 config['live'] = live
 
-        # Archive (SummaryBy) pages: the timespan is exactly a calendar
-        # month/year; render the [[archive]] layout for that period.
-        period_kind = _detect_period(timespan)
+        # Archive pages: the timespan is exactly a calendar week/month/
+        # year; render the [[archive]] layout for that period.
+        week_start = getattr(stn_info, 'week_start', 6)
+        period_kind = _detect_period(timespan, week_start)
         period = None
         if period_kind:
             sections = getattr(nordlys_dict, 'sections', [])
@@ -556,14 +601,13 @@ class NordlysSearchList(SearchList):
                 )
                 config['pages'] = []
             else:
-                label = time.strftime(
-                    '%B %Y' if period_kind == 'month' else '%Y',
-                    time.localtime(timespan.start),
+                period_id, label = _period_meta(
+                    period_kind, timespan.start, week_start
                 )
                 page = _page_config('archive', nordlys_dict['archive'])
                 page['title'] = label
                 config['pages'] = [page]
-                period = {'kind': period_kind, 'label': label}
+                period = {'kind': period_kind, 'id': period_id, 'label': label}
 
         for warning in validate_config(config):
             log.warning('Nordlys skin.conf: %s', warning)
@@ -625,9 +669,17 @@ class NordlysSearchList(SearchList):
         )
         windrose = self._windrose_data(rose_needs, db_manager, span_timespans)
         stats = self._stats_data(stats_needs, db_manager, stats_spans)
+        # The archives index feeds reports tiles and period pickers - the
+        # latter on both live pages (page picker) and archive pages (whose
+        # own picker is driven by the period they represent).
+        needs_archives = (
+            'reports' in tile_types
+            or period is not None
+            or any(page.get('picker') for page in pages)
+        )
         archives = (
-            self._archives_index(db_manager)
-            if 'reports' in tile_types
+            self._archives_index(db_manager, week_start)
+            if needs_archives
             else None
         )
         payload = {
@@ -1270,14 +1322,25 @@ class NordlysSearchList(SearchList):
     # ------------------------------------------------------------------
     # archives index
 
-    def _archives_index(self, db_manager):
-        """Every month/year in the database, with archive-page and NOAA
-        links (default filename patterns from skin.conf)."""
+    def _archives_index(self, db_manager, week_start=6):
+        """Every week/month/year in the database, with archive-page (and
+        NOAA, for months/years) links. Oldest first; the front-end orders
+        newest-first where needed."""
         first_ts = db_manager.firstGoodStamp()
         last_ts = db_manager.lastGoodStamp()
         if not first_ts or not last_ts:
             return None
 
+        weeks = []
+        for span in _gen_week_spans(first_ts, last_ts, week_start):
+            start = time.localtime(span.start)
+            weeks.append(
+                {
+                    'id': time.strftime('%Y-%m-%d', start),
+                    'label': _week_label(start, week_start),
+                    'page': time.strftime(_ARCHIVE_WEEK_PAGE, start),
+                }
+            )
         months = []
         for span in genMonthSpans(first_ts, last_ts):
             start = time.localtime(span.start)
@@ -1302,7 +1365,7 @@ class NordlysSearchList(SearchList):
                     'noaa': time.strftime(_NOAA_YEAR_FILE, start),
                 }
             )
-        return {'months': months, 'years': years}
+        return {'weeks': weeks, 'months': months, 'years': years}
 
     def _format_altitude(self, altitude_vt):
         converted = self.generator.converter.convert(altitude_vt)
@@ -1321,3 +1384,34 @@ class NordlysSearchList(SearchList):
     @staticmethod
     def _round(value, decimals):
         return round(value, decimals) if value is not None else None
+
+
+class NordlysWeekGenerator(weewx.cheetahgenerator.CheetahGenerator):
+    """Generates per-week archive pages (week-<start-date>.html).
+
+    weewx's CheetahGenerator knows only SummaryByDay/Month/Year. This
+    registers a weekly span generator so the inherited machinery - file
+    naming from the period start, and staleness that regenerates only the
+    current/missing weeks - treats the skin's [NordlysWeekGenerator]
+    [[SummaryByWeek]] section like a built-in SummaryBy period. The
+    NordlysSearchList then detects the week timespan and serializes the
+    [[archive]] layout scoped to that week.
+    """
+
+    def run(self):
+        base = weewx.cheetahgenerator.CheetahGenerator
+        week_start = getattr(self.stn_info, 'week_start', 6)
+        base.generator_dict['SummaryByWeek'] = functools.partial(
+            _gen_week_spans, week_start=week_start
+        )
+        base.format_dict['SummaryByWeek'] = '%Y-%m-%d'
+        self.outputted_dict.setdefault('SummaryByWeek', [])
+
+        section_name = 'NordlysWeekGenerator'
+        gen_dict = weewx.cheetahgenerator.deep_copy(self.skin_dict)
+        if section_name not in gen_dict:
+            return
+        gen_dict[section_name]['summarize_by'] = 'None'
+        self.init_extensions(gen_dict[section_name])
+        self.generate(gen_dict[section_name], section_name, self.gen_ts)
+        self.teardown()

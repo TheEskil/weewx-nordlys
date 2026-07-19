@@ -149,12 +149,15 @@ and the front-end fetches it.
     "trend": "steady"        // barometer over 3 h: rising|steady|falling
   },
 
-  "period": {                // archive (SummaryBy) pages only, else null
-    "kind": "month",         // month | year
-    "label": "July 2026"
+  "period": {                // archive pages only, else null
+    "kind": "week",          // week | month | year
+    "id": "2026-07-13",      // matches the archives-index id (picker selection)
+    "label": "Week of 13 Jul 2026"
   },
 
-  "archives": {              // present when a reports tile exists
+  "archives": {              // present for a reports tile or a period picker
+    "weeks":  [ { "id": "2026-07-13", "label": "Week of 13 Jul 2026",
+                  "page": "week-2026-07-13.html" } ],   // no NOAA for weeks
     "months": [ { "id": "2026-07", "label": "July 2026", "month": "Jul",
                   "year": "2026", "page": "month-2026-07.html",
                   "noaa": "NOAA/NOAA-2026-07.txt" } ],
