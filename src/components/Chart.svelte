@@ -43,6 +43,27 @@
     return token(`series-${(index % 6) + 1}`)
   }
 
+  // Plain numeric tick labels: no locale thousands grouping (wrong for
+  // measurement values), float noise rounded away.
+  function tickValues(_u: uPlot, splits: number[]): string[] {
+    return splits.map((v) => (v == null ? '' : String(+v.toFixed(6))))
+  }
+
+  // Keep flat/empty series from autoscaling to uPlot's constant-data
+  // default (0-100), and anchor bar charts at a zero baseline.
+  function yRange(_u: uPlot, dataMin: number, dataMax: number): [number, number] {
+    if (dataMin == null || dataMax == null) return [0, 1]
+    if (kind === 'bar') {
+      return dataMax <= 0 ? [0, 1] : [0, dataMax * 1.1]
+    }
+    if (dataMin === dataMax) {
+      if (dataMin === 0) return [0, 1]
+      const pad = Math.abs(dataMin) * 0.1
+      return [dataMin - pad, dataMax + pad]
+    }
+    return uPlot.rangeNum(dataMin, dataMax, 0.1, true) as [number, number]
+  }
+
   function buildOptions(width: number): uPlot.Options {
     const border = token('border')
     const dim = token('text-dim')
@@ -85,7 +106,7 @@
       width,
       height: 190,
       series: [{}, ...series],
-      scales: isDirection ? { y: { range: [0, 360] } } : undefined,
+      scales: { y: { range: isDirection ? [0, 360] : yRange } },
       axes: [
         { ...axis, grid: { show: false } },
         isDirection
@@ -96,7 +117,7 @@
               values: () => ['N', 'E', 'S', 'W', 'N'],
               size: 40,
             }
-          : { ...axis, size: 50 },
+          : { ...axis, size: 50, values: tickValues },
       ],
       cursor: { y: false },
       legend: { live: true },
