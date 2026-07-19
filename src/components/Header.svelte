@@ -28,18 +28,31 @@
     onNavigate: (id: string) => void
   } = $props()
 
-  function onNavClick(event: MouseEvent, id: string) {
-    // Let the browser handle modified clicks (new tab, etc.).
-    if (
+  function isPlainClick(event: MouseEvent): boolean {
+    return !(
       event.button !== 0 ||
       event.metaKey ||
       event.ctrlKey ||
       event.shiftKey ||
       event.altKey
     )
-      return
+  }
+
+  function onNavClick(event: MouseEvent, id: string) {
+    // Let the browser handle modified clicks (new tab, etc.).
+    if (!isPlainClick(event)) return
     event.preventDefault()
     onNavigate(id)
+  }
+
+  // Icon + name link to Today: intercepted like a nav link on live pages;
+  // on archive pages let it navigate to index.html for real.
+  function onBrandClick(event: MouseEvent) {
+    if (period || !isPlainClick(event)) return
+    const home = pages[0]?.id
+    if (!home) return
+    event.preventDefault()
+    onNavigate(home)
   }
 
   // The tab row scrolls horizontally on narrow screens; a gradient fade
@@ -71,17 +84,17 @@
 </script>
 
 <header>
-  <div class="station">
-    {#if period}
-      <h1><a class="home" href="index.html">{station.name}</a></h1>
-      <p class="location">{period.label} · archive</p>
-    {:else}
+  <a class="brand" href="index.html" aria-label={station.name} onclick={onBrandClick}>
+    <img class="icon" src="icon.svg" alt="" width="28" height="28" />
+    <span class="names">
       <h1>{station.name}</h1>
-      {#if station.location && station.location !== station.name}
-        <p class="location">{station.location}</p>
+      {#if period}
+        <span class="location">{period.label} · archive</span>
+      {:else if station.location && station.location !== station.name}
+        <span class="location">{station.location}</span>
       {/if}
-    {/if}
-  </div>
+    </span>
+  </a>
 
   <div class="right">
     {#if pages.length > 1}
@@ -129,20 +142,38 @@
     border-bottom: 1px solid var(--nl-border);
   }
 
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: var(--nl-space-2);
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+  }
+
+  .icon {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    border-radius: 6px;
+  }
+
+  .names {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
   h1 {
     font-size: var(--nl-fs-lg);
   }
 
-  h1 .home {
-    color: inherit;
-  }
-
-  h1 .home:hover {
+  .brand:hover h1 {
     color: var(--nl-accent);
-    text-decoration: none;
   }
 
   .location {
+    display: block;
     color: var(--nl-text-dim);
     font-size: var(--nl-fs-sm);
   }
