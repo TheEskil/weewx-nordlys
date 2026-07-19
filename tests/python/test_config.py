@@ -75,6 +75,18 @@ class TestTileConfig(unittest.TestCase):
             tile, {'type': 'stat', 'obs': 'windGust', 'title': 'Gusts'}
         )
 
+    def test_non_obs_tile_does_not_inherit_section_name(self):
+        for tile_type in ('forecast', 'celestial', 'climatology', 'reports', 'text'):
+            config = section([f'[{tile_type}]', f'type = {tile_type}'])
+            tile = _tile_config(tile_type, config[tile_type])
+            self.assertEqual(tile, {'type': tile_type})
+            self.assertNotIn('obs', tile)
+
+    def test_non_obs_tile_keeps_explicit_obs(self):
+        config = section(['[celestial]', 'type = celestial', 'obs = outTemp'])
+        tile = _tile_config('celestial', config['celestial'])
+        self.assertEqual(tile, {'type': 'celestial', 'obs': 'outTemp'})
+
 
 class TestPageConfig(unittest.TestCase):
     def test_rows_and_tiles_in_order(self):
@@ -321,6 +333,13 @@ class TestValidateConfig(unittest.TestCase):
     def test_gauge_without_obs(self):
         warnings = validate_config(self._page([{'type': 'gauge'}]))
         self.assertIn('gauge tile needs an obs', warnings[0])
+
+    def test_obs_on_non_obs_tile_warns(self):
+        warnings = validate_config(
+            self._page([{'type': 'celestial', 'obs': 'outTemp'}])
+        )
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("celestial tile ignores obs 'outTemp'", warnings[0])
 
     def test_bad_chart_kind_and_span(self):
         warnings = validate_config(
