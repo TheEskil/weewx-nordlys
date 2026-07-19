@@ -92,7 +92,12 @@
 
   .live.connected .dot {
     background: var(--nl-ok);
-    animation: nl-pulse 2.4s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .live.connected .dot {
+      animation: nl-pulse 2.4s ease-in-out infinite;
+    }
   }
 
   .live.error .dot {

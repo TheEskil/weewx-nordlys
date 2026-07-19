@@ -2,6 +2,9 @@ node_modules/
 skins/Nordlys/dist/
 .venv/
 dev/weewx/
+release/
+test-results/
+playwright-report/
 __pycache__/
 *.log
 .DS_Store

@@ -9,7 +9,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "budget": "node tests/budget.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

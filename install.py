@@ -31,6 +31,9 @@ class NordlysInstaller(ExtensionInstaller):
                     [
                         'skins/Nordlys/skin.conf',
                         'skins/Nordlys/index.html.tmpl',
+                        'skins/Nordlys/nordlys.webmanifest.tmpl',
+                        'skins/Nordlys/sw.js',
+                        'skins/Nordlys/icon.svg',
                     ],
                 ),
                 (

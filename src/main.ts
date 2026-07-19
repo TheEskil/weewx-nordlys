@@ -40,3 +40,14 @@ loadPayload().then((payload) => {
   target.replaceChildren() // drop the server-rendered fallback
   mount(App, { target, props: { payload } })
 })
+
+// PWA offline support - production only (the dev harness marks itself
+// with data-src on the payload element).
+const isDev = document
+  .getElementById('nordlys-data')
+  ?.hasAttribute('data-src')
+if (!isDev && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {
+    /* offline support is best-effort */
+  })
+}

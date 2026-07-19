@@ -65,4 +65,24 @@ The Python <-> front-end payload shape is documented in
 
 ## Installation
 
-Not yet released. Once packaged: `weectl extension install <zip>`.
+Build the extension package from source (a binary release will follow):
+
+```sh
+npm install
+./dev/package.sh          # -> release/weewx-nordlys-<version>.zip
+weectl extension install release/weewx-nordlys-<version>.zip
+weectl report run         # or wait for the next archive interval
+```
+
+The report is generated under `HTML_ROOT/nordlys/`. Configure everything
+in `skin.conf` (or override from weewx.conf) - see the
+[configuration reference](docs/config-reference.md).
+
+## Tests
+
+```sh
+npm test        # unit tests (helpers, payload parser, config schema)
+npm run e2e     # Playwright end-to-end suite (incl. a live MQTT test)
+npm run budget  # gzip bundle-size budget
+.venv/bin/python -m unittest discover tests/python
+```
