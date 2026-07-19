@@ -36,6 +36,13 @@ and the front-end fetches it.
       "dark":  { "accent": "#3ddc97", … },  // --nl-* overrides, no prefix
       "light": { … }
     },
+    "formats": {             // strftime formats (24-h European defaults),
+      "time": "%H:%M",       // shared by the SLE and the front-end so both
+      "date": "%d %b",       // sides format dates/times identically
+      "date_year": "%d %b %Y",
+      "datetime": "%d %b %Y, %H:%M",
+      "weekday_time": "%a %H:%M"
+    },
     "pages": [
       {
         "id": "today",       // section name

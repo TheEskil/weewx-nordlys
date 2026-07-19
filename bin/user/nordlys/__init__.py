@@ -102,15 +102,26 @@ _STATS_SPANS = {
     'month': archiveMonthSpan,
     'year': archiveYearSpan,
 }
-# strftime formats for extreme times per stats span.
-_STATS_TIME_FORMAT = {
-    'day': '%H:%M',
-    'yesterday': '%H:%M',
-    'week': '%a %H:%M',
-    'month': '%d %b',
-    'year': '%d %b',
-    'alltime': '%d %b %Y',
-    'archive': '%d %b',
+# Config-driven date/time formats (strftime). Defaults are 24-hour time
+# and European dates with abbreviated months; overridable in
+# [Nordlys][[formats]] and serialized to the payload as config.formats so
+# the SLE and front-end share one source of truth.
+_DEFAULT_FORMATS = {
+    'time': '%H:%M',              # day-span extremes, records, live
+    'date': '%d %b',             # month/year-span extremes, chart date ticks
+    'date_year': '%d %b %Y',     # all-time extremes, footer date
+    'datetime': '%d %b %Y, %H:%M',  # footer "Generated"
+    'weekday_time': '%a %H:%M',  # week-span extremes, records-table rows
+}
+# Which format key each stats span's extreme times use.
+_STATS_TIME_FORMAT_KEY = {
+    'day': 'time',
+    'yesterday': 'time',
+    'week': 'weekday_time',
+    'month': 'date',
+    'year': 'date',
+    'alltime': 'date_year',
+    'archive': 'date',
 }
 
 # Archive (SummaryBy) pages: the 'archive' span resolves to the page's
@@ -236,6 +247,13 @@ def _theme_config(section):
             if tokens:
                 theme[mode] = tokens
     return theme
+
+
+def _formats_config(section):
+    """Date/time formats with the 24-hour European defaults filled in."""
+    formats = dict(_DEFAULT_FORMATS)
+    formats.update(_section_items(section))
+    return formats
 
 
 def _tiles(pages):
@@ -613,7 +631,15 @@ class NordlysSearchList(SearchList):
         nordlys_dict = skin_dict.get('Nordlys', {})
         stn_info = self.generator.stn_info
 
-        config = {'pages': []}
+        # Date/time formats: one config-driven source of truth shared with
+        # the front-end (extreme times, chart ticks, footer, records).
+        self._formats = _formats_config(
+            nordlys_dict['formats']
+            if 'formats' in getattr(nordlys_dict, 'sections', [])
+            else {}
+        )
+
+        config = {'pages': [], 'formats': self._formats}
         if 'theme' in getattr(nordlys_dict, 'sections', []):
             config['theme'] = _theme_config(nordlys_dict['theme'])
         if 'pages' in getattr(nordlys_dict, 'sections', []):
@@ -907,7 +933,9 @@ class NordlysSearchList(SearchList):
             return None
         extreme = {'value': self._round(value[0], decimals)}
         if time_vt[0] is not None:
-            extreme['time'] = time.strftime('%H:%M', time.localtime(time_vt[0]))
+            extreme['time'] = time.strftime(
+                self._formats['time'], time.localtime(time_vt[0])
+            )
         return extreme
 
     def _average(self, obs, day_span, db_manager, decimals):
@@ -1049,7 +1077,7 @@ class NordlysSearchList(SearchList):
     def _stats_entry(self, obs, span, timespan, db_manager, labels):
         converter = self.generator.converter
         formatter = self.generator.formatter
-        time_format = _STATS_TIME_FORMAT[span]
+        time_format = self._formats[_STATS_TIME_FORMAT_KEY[span]]
 
         def aggregate(kind):
             return converter.convert(
@@ -1476,13 +1504,19 @@ class NordlysSearchList(SearchList):
                 planets.append({'name': name, 'rise': rise, 'set': set_})
         return planets
 
-    @staticmethod
-    def _clock(ts):
-        return time.strftime('%H:%M', time.localtime(ts)) if ts else None
+    def _clock(self, ts):
+        return (
+            time.strftime(self._formats['time'], time.localtime(ts))
+            if ts
+            else None
+        )
 
-    @staticmethod
-    def _date(ts):
-        return time.strftime('%d %b %Y', time.localtime(ts)) if ts else None
+    def _date(self, ts):
+        return (
+            time.strftime(self._formats['date_year'], time.localtime(ts))
+            if ts
+            else None
+        )
 
     def _forecast_data(self, db_lookup):
         db_manager = db_lookup()
