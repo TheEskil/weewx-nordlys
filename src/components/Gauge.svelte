@@ -30,11 +30,32 @@
 
   const min = $derived(options?.min ?? 0)
   const max = $derived(options?.max ?? 100)
-  const fraction = $derived(
-    obs.value === null || max <= min
-      ? null
-      : Math.min(1, Math.max(0, (obs.value - min) / (max - min))),
+
+  function fracOf(value: number): number {
+    return Math.min(1, Math.max(0, (value - min) / (max - min)))
+  }
+  function angleOf(fraction: number): number {
+    return START + SPAN * fraction
+  }
+
+  const scaled = $derived(max > min)
+  const nowFrac = $derived(
+    obs.value === null || !scaled ? null : fracOf(obs.value),
   )
+  const minVal = $derived(obs.min?.value ?? null)
+  const maxVal = $derived(obs.max?.value ?? null)
+
+  // The band spans the period's observed range. With only a max (min is
+  // suppressed for wind/UV/etc.) it grows from the scale minimum; with no
+  // extremes at all there is no band, only the now-marker dot.
+  const band = $derived.by(() => {
+    if (!scaled || (minVal === null && maxVal === null)) return null
+    const lo = minVal !== null ? fracOf(minVal) : 0
+    const hi = maxVal !== null ? fracOf(maxVal) : (nowFrac ?? lo)
+    return hi >= lo ? { lo, hi } : { lo: hi, hi: lo }
+  })
+  const marker = $derived(nowFrac === null ? null : point(angleOf(nowFrac)))
+
   const [minX, minY] = point(START)
   const [maxX, maxY] = point(-START)
   const arcColor = $derived(valueColor(obs.value, options))
@@ -47,12 +68,15 @@
     aria-label="{title ?? obs.label}: {formatObs(obs)} {obs.unit}"
   >
     <path class="track" d={arc(START, -START)} />
-    {#if fraction !== null && fraction > 0}
+    {#if band}
       <path
-        class="value-arc"
+        class="band"
         style:stroke={arcColor}
-        d={arc(START, START + SPAN * fraction)}
+        d={arc(angleOf(band.lo), angleOf(band.hi))}
       />
+    {/if}
+    {#if marker}
+      <circle class="marker" style:fill={arcColor} cx={marker[0]} cy={marker[1]} r="4" />
     {/if}
     <text class="value nl-num" x="50" y="52">{formatObs(obs)}</text>
     <text class="unit" x="50" y="64">{obs.unit}</text>
@@ -90,11 +114,18 @@
     stroke-linecap: round;
   }
 
-  .value-arc {
+  .band {
     fill: none;
     stroke: var(--nl-accent);
     stroke-width: 4;
     stroke-linecap: round;
+    stroke-opacity: 0.35;
+  }
+
+  .marker {
+    fill: var(--nl-accent);
+    stroke: var(--nl-surface);
+    stroke-width: 1.25;
   }
 
   text {

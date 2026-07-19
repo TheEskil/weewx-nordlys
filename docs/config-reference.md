@@ -129,7 +129,7 @@ value then reads "-").
     min = -20            # gauge scale bounds (report units)
     max = 35
     style = compass      # wind-direction compass variant
-    color = accent-2     # token name or literal CSS color for the arc
+    color = accent-2     # token/CSS color for the range band + now-marker
     cold_below = 0       # switch to --nl-cold below this value
     hot_above = 25       # switch to --nl-hot above this value
 ```
