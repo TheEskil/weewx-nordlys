@@ -266,6 +266,45 @@ class TestEmptyObs(unittest.TestCase):
         self.assertEqual(empty, [])
 
 
+class TestAverage(unittest.TestCase):
+    def setUp(self):
+        self.sle = NordlysSearchList.__new__(NordlysSearchList)
+
+        class Gen:
+            class converter:
+                @staticmethod
+                def convert(vt):
+                    return vt
+
+        self.sle.generator = Gen()
+        self._orig = weewx.xtypes.get_aggregate
+
+    def tearDown(self):
+        weewx.xtypes.get_aggregate = self._orig
+
+    def _returns(self, value):
+        weewx.xtypes.get_aggregate = lambda obs, ts, agg, db, **kw: (
+            value,
+            'unit',
+            'group',
+        )
+
+    def test_rounds_to_decimals(self):
+        self._returns(13.24)
+        self.assertEqual(self.sle._average('outTemp', None, None, 1), 13.2)
+
+    def test_none_value(self):
+        self._returns(None)
+        self.assertIsNone(self.sle._average('outTemp', None, None, 1))
+
+    def test_unknown_aggregate(self):
+        def raise_(*a, **kw):
+            raise weewx.UnknownAggregation('avg')
+
+        weewx.xtypes.get_aggregate = raise_
+        self.assertIsNone(self.sle._average('foo', None, None, 1))
+
+
 class TestCollectChartNeeds(unittest.TestCase):
     def test_series_and_rose_split_by_span(self):
         pages = [

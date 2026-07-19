@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { Observation, TileOptions } from '../lib/types'
   import { valueColor } from '../lib/color'
-  import { formatObs, formatTrend, formatValue } from '../lib/format'
+  import { formatObs, formatValue } from '../lib/format'
+  import Extremes from './Extremes.svelte'
+  import Glyph from './Glyph.svelte'
 
   let {
     obs,
@@ -10,6 +12,13 @@
   }: { obs: Observation; title?: string; options?: TileOptions } = $props()
 
   const decimals = $derived(obs.decimals ?? 1)
+  const hasExtremes = $derived(
+    Boolean(obs.min) || obs.avg !== undefined || Boolean(obs.max),
+  )
+  const hasTrend = $derived(obs.trend !== null && obs.trend !== undefined)
+  const trendKind = $derived(
+    !obs.trend ? 'steady' : obs.trend > 0 ? 'rising' : 'falling',
+  )
 </script>
 
 <article>
@@ -17,23 +26,17 @@
   <p class="value nl-num" style:color={valueColor(obs.value, options)}>
     {formatObs(obs)}<span class="unit">{obs.unit}</span>
   </p>
-  <div class="detail nl-num">
-    {#if obs.min || obs.max}
-      <span>
-        {#if obs.min}
-          <span class="extreme">↓ {formatValue(obs.min.value, decimals)}</span>
-          {#if obs.min.time}<span class="time">{obs.min.time}</span>{/if}
-        {/if}
-        {#if obs.max}
-          <span class="extreme">↑ {formatValue(obs.max.value, decimals)}</span>
-          {#if obs.max.time}<span class="time">{obs.max.time}</span>{/if}
-        {/if}
-      </span>
-    {/if}
-    {#if obs.trend !== null && obs.trend !== undefined}
-      <span class="trend">{formatTrend(obs.trend, decimals)}</span>
-    {/if}
-  </div>
+  {#if hasExtremes || hasTrend}
+    <div class="detail nl-num">
+      <Extremes {obs} />
+      {#if hasTrend}
+        <span class="trend">
+          <Glyph kind={trendKind} label="trend" />
+          {formatValue(Math.abs(obs.trend as number), decimals)}
+        </span>
+      {/if}
+    </div>
+  {/if}
 </article>
 
 <style>
@@ -65,18 +68,19 @@
   .detail {
     display: flex;
     justify-content: space-between;
-    gap: var(--nl-space-1);
+    align-items: center;
+    gap: var(--nl-space-0) var(--nl-space-2);
+    flex-wrap: wrap;
     margin-top: var(--nl-space-1);
     font-size: var(--nl-fs-sm);
     color: var(--nl-text-dim);
   }
 
-  .extreme + .time,
-  .time + .extreme {
-    margin-left: var(--nl-space-0);
-  }
-
-  .time {
-    opacity: 0.7;
+  .trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2em;
+    margin-left: auto;
+    white-space: nowrap;
   }
 </style>

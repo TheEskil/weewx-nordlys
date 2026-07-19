@@ -72,6 +72,7 @@ and the front-end fetches it.
       "decimals": 1,         // from the weewx format string for the unit
       "min": { "value": 9.8, "time": "04:37" },  // today's extreme (optional)
       "max": { "value": 15.2, "time": "13:05" },
+      "avg": 12.5,           // period average (optional; no time, not live)
       "trend": 0.4           // change over last 3 h, report units (optional)
     }
   },
@@ -190,6 +191,11 @@ the front-end shows the archive header with a link back to the index.
   last archive value.
 - **Extremes**: omitted where meaningless (`min` for wind/rain-rate/UV/
   radiation; both for `rain` and `windDir`). Times are `HH:MM` local.
+- **Average**: `avg` is the period average, computed alongside the
+  extremes (omitted for `rain` and `windDir`). It has no time and, unlike
+  `min`/`max`, is not extended by live updates - it stays at its
+  report-time value. Stat and gauge tiles render min/avg/max as a glyph
+  row.
 - **Trends**: currently `outTemp` and `barometer`, change over the last
   three hours.
 - **Theme overrides**: token names are the `--nl-*` custom properties
