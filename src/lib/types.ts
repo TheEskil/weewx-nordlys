@@ -9,6 +9,9 @@ export interface NordlysPayload {
   meta: Meta
   config: SkinConfig
   current: Record<string, Observation>
+  /** obs with no data over the archive (absent sensors); their tiles
+   * and stats rows are hidden unless a tile sets always_show */
+  emptyObs?: string[]
   /** span ('day' | 'week' | …) -> obs -> series */
   series?: Record<string, Record<string, SeriesEntry>>
   /** span -> wind-rose distribution */
@@ -212,6 +215,8 @@ export interface TileOptions {
   table?: string
   /** calendar chart daily aggregate: avg (default) | min | max | sum */
   aggregate?: string
+  /** keep this tile visible even when its observation has no data */
+  always_show?: boolean
   [key: string]: unknown
 }
 

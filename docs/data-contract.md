@@ -76,6 +76,13 @@ and the front-end fetches it.
     }
   },
 
+  "emptyObs": ["rain", "radiation"],  // obs with no data over the whole
+                             // archive (absent sensors). The front-end
+                             // hides their tiles and stats rows unless a
+                             // tile sets always_show. A sum obs (rain)
+                             // counts as empty when its all-time total is
+                             // zero; others when they have no non-null data.
+
   "series": {                // one entry per span/obs referenced by chart tiles
     "day": {                 // rolling window anchored at the last record:
                              // day 24h | week 7d | month 30d | year 365d
@@ -173,6 +180,12 @@ the front-end shows the archive header with a link back to the index.
 - **`current` selection**: the SLE serializes exactly the observations
   referenced by tiles. A tile whose obs is missing from `current` renders
   a "no data" placeholder.
+- **Absent sensors**: observations listed in `emptyObs` have no data over
+  the whole archive. Their gauge/stat/chart tiles are hidden, their rows
+  dropped from stats/records tables, and "rain days"-style climatological
+  counts suppressed - so the default skin works sensibly on a station that
+  lacks a sensor. Set `always_show = true` on a tile to override and keep
+  it visible (the value then reads "-").
 - **Day totals**: for `rain`, `value` is the day's running sum, not the
   last archive value.
 - **Extremes**: omitted where meaningless (`min` for wind/rain-rate/UV/

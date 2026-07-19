@@ -18,11 +18,17 @@ sys.path.insert(
     ),
 )
 
+import weewx  # noqa: E402
+import weewx.xtypes  # noqa: E402
+
 from nordlys import (  # noqa: E402
+    NordlysSearchList,
+    _all_obs,
     _coerce,
     _collect_chart_needs,
     _collect_obs,
     _collect_stats_needs,
+    _forced_obs,
     _page_config,
     _theme_config,
     _tile_config,
@@ -172,6 +178,92 @@ class TestCollectObs(unittest.TestCase):
             }
         ]
         self.assertEqual(_collect_obs(pages), ['outTemp'])
+
+
+class TestObsCollection(unittest.TestCase):
+    def _pages(self, tiles):
+        return [{'layout': [{'tiles': tiles}]}]
+
+    def test_all_obs_includes_charts_deduped(self):
+        pages = self._pages(
+            [
+                {'type': 'stat', 'obs': 'outTemp'},
+                {'type': 'chart', 'obs': ['outTemp', 'dewpoint']},
+                {'type': 'forecast'},
+            ]
+        )
+        self.assertEqual(_all_obs(pages), ['outTemp', 'dewpoint'])
+
+    def test_forced_obs_from_always_show(self):
+        pages = self._pages(
+            [
+                {'type': 'stat', 'obs': 'rain', 'options': {'always_show': True}},
+                {'type': 'stat', 'obs': 'outTemp'},
+            ]
+        )
+        self.assertEqual(_forced_obs(pages), {'rain'})
+
+
+class FakeDB:
+    def __init__(self, first=1000, last=2000):
+        self._first = first
+        self._last = last
+
+    def firstGoodStamp(self):
+        return self._first
+
+    def lastGoodStamp(self):
+        return self._last
+
+
+class TestEmptyObs(unittest.TestCase):
+    def setUp(self):
+        self.sle = NordlysSearchList.__new__(NordlysSearchList)
+        self._orig = weewx.xtypes.get_aggregate
+
+    def tearDown(self):
+        weewx.xtypes.get_aggregate = self._orig
+
+    def _patch(self, values):
+        # values: {(obs, aggregate): scalar}
+        def fake(obs, timespan, aggregate, db_manager, **kw):
+            if (obs, aggregate) not in values:
+                raise weewx.UnknownType(obs)
+            return (values[(obs, aggregate)], 'unit', 'group')
+
+        weewx.xtypes.get_aggregate = fake
+
+    def test_no_data_obs_are_empty(self):
+        self._patch(
+            {
+                ('outTemp', 'count'): 500,
+                ('radiation', 'count'): 0,  # sensor reports nothing
+                ('rain', 'sum'): 0,  # no rain gauge / all zero
+            }
+        )
+        empty = self.sle._empty_obs(
+            ['outTemp', 'radiation', 'rain'], set(), FakeDB()
+        )
+        self.assertEqual(empty, ['radiation', 'rain'])
+
+    def test_rain_with_data_is_not_empty(self):
+        self._patch({('rain', 'sum'): 12.4})
+        self.assertEqual(self.sle._empty_obs(['rain'], set(), FakeDB()), [])
+
+    def test_unknown_obs_is_empty(self):
+        self._patch({})  # every lookup raises UnknownType
+        self.assertEqual(
+            self.sle._empty_obs(['missing'], set(), FakeDB()), ['missing']
+        )
+
+    def test_forced_obs_never_empty(self):
+        self._patch({('rain', 'sum'): 0})
+        self.assertEqual(self.sle._empty_obs(['rain'], {'rain'}, FakeDB()), [])
+
+    def test_no_archive_returns_empty_list(self):
+        self._patch({})
+        empty = self.sle._empty_obs(['rain'], set(), FakeDB(first=None, last=None))
+        self.assertEqual(empty, [])
 
 
 class TestCollectChartNeeds(unittest.TestCase):

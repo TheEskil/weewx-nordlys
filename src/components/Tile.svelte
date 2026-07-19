@@ -12,6 +12,7 @@
   import Almanac from './Almanac.svelte'
   import Forecast from './Forecast.svelte'
   import Reports from './Reports.svelte'
+  import { tileIsEmpty } from '../lib/empty'
 
   let { tile, payload }: { tile: TileConfig; payload: NordlysPayload } =
     $props()
@@ -19,8 +20,11 @@
   const obsKey = $derived(Array.isArray(tile.obs) ? tile.obs[0] : tile.obs)
   const obs = $derived(obsKey ? payload.current[obsKey] : undefined)
   const isChart = $derived(tile.type === 'chart')
+  // Absent sensors are hidden entirely rather than showing empty tiles.
+  const hidden = $derived(tileIsEmpty(tile, payload))
 </script>
 
+{#if !hidden}
 <div class="tile" class:chart={isChart}>
   {#if tile.type === 'gauge' && obs}
     {#if tile.options?.style === 'compass'}
@@ -60,6 +64,7 @@
     </p>
   {/if}
 </div>
+{/if}
 
 <style>
   .tile {

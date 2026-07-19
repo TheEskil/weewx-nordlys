@@ -226,6 +226,26 @@ def _obs_list(tile):
     return obs if isinstance(obs, list) else [obs]
 
 
+def _all_obs(pages):
+    """Every observation any tile references, in config order."""
+    keys = []
+    for tile in _tiles(pages):
+        for obs in _obs_list(tile):
+            if obs not in keys:
+                keys.append(obs)
+    return keys
+
+
+def _forced_obs(pages):
+    """Observations kept visible even when empty (tile always_show)."""
+    forced = set()
+    for tile in _tiles(pages):
+        options = tile.get('options') or {}
+        if options.get('always_show'):
+            forced.update(_obs_list(tile))
+    return forced
+
+
 def _collect_obs(pages):
     """Observation keys needing current data, in config order."""
     keys = []
@@ -514,6 +534,9 @@ class NordlysSearchList(SearchList):
         stats_needs = _collect_stats_needs(pages)
         db_manager = db_lookup()
         last_ts = db_manager.lastGoodStamp()
+        empty_obs = self._empty_obs(
+            _all_obs(pages), _forced_obs(pages), db_manager
+        )
 
         if period:
             # Everything is scoped to the page's own period; "now"-style
@@ -536,7 +559,7 @@ class NordlysSearchList(SearchList):
             )
             current = self._current_data(pages, db_lookup)
             climatology = self._climatology_data(
-                nordlys_dict, tile_types, calendar_needs, db_lookup
+                nordlys_dict, tile_types, calendar_needs, db_lookup, empty_obs
             )
             almanac = (
                 self._almanac_data(db_lookup)
@@ -573,6 +596,7 @@ class NordlysSearchList(SearchList):
             },
             'config': config,
             'current': current,
+            'emptyObs': empty_obs,
             'series': series,
             'windrose': windrose,
             'stats': stats,
@@ -594,6 +618,46 @@ class NordlysSearchList(SearchList):
                 'nordlys_user_css': nordlys_dict.get('user_css', ''),
             }
         ]
+
+    # ------------------------------------------------------------------
+    # empty observations (absent sensors)
+
+    def _empty_obs(self, all_obs, forced, db_manager):
+        """Observations with no meaningful data over the whole archive -
+        absent sensors. `sum` observations (rain) count as empty when
+        their total is zero; others when they have no non-null records.
+        `forced` obs (a tile's always_show) are never reported empty.
+        """
+        first_ts = db_manager.firstGoodStamp()
+        last_ts = db_manager.lastGoodStamp()
+        if not first_ts or not last_ts:
+            return []
+        extent = TimeSpan(first_ts, last_ts)
+        return [
+            obs
+            for obs in all_obs
+            if obs not in forced
+            and not self._obs_has_data(obs, extent, db_manager)
+        ]
+
+    @staticmethod
+    def _obs_has_data(obs, extent, db_manager):
+        try:
+            if obs in _SUM_OBS:
+                total = weewx.xtypes.get_aggregate(
+                    obs, extent, 'sum', db_manager
+                )
+                return total[0] is not None and total[0] != 0
+            count = weewx.xtypes.get_aggregate(
+                obs, extent, 'count', db_manager
+            )
+            return bool(count[0])
+        except (
+            weewx.UnknownType,
+            weewx.UnknownAggregation,
+            weewx.CannotCalculate,
+        ):
+            return False
 
     # ------------------------------------------------------------------
     # current data
@@ -839,10 +903,12 @@ class NordlysSearchList(SearchList):
 
         if obs in _SUM_OBS:
             entry['sum'] = self._round(probe[0], decimals)
-            # Wettest day of the span.
-            max_entry, _ = extreme('maxsum', 'maxsumtime')
-            if max_entry:
-                entry['max'] = max_entry
+            # Wettest day of the span - but a zero total has no wettest
+            # day, so skip the meaningless "max 0.0 (01 Jan)".
+            if probe[0]:
+                max_entry, _ = extreme('maxsum', 'maxsumtime')
+                if max_entry:
+                    entry['max'] = max_entry
         else:
             min_entry, _ = extreme('min', 'mintime')
             max_entry, _ = extreme('max', 'maxtime')
@@ -858,7 +924,9 @@ class NordlysSearchList(SearchList):
     # ------------------------------------------------------------------
     # climatology
 
-    def _climatology_data(self, nordlys_dict, tile_types, calendar_needs, db_lookup):
+    def _climatology_data(
+        self, nordlys_dict, tile_types, calendar_needs, db_lookup, empty_obs=()
+    ):
         wants_days = 'climatology' in tile_types and 'climatological_days' in getattr(
             nordlys_dict, 'sections', []
         )
@@ -880,6 +948,10 @@ class NordlysSearchList(SearchList):
             days = []
             for def_id in section.sections:
                 definition = _section_items(section[def_id])
+                # A climatological-day count for an absent sensor (e.g.
+                # "rain days" with no rain gauge) is meaningless noise.
+                if definition.get('obs') in empty_obs:
+                    continue
                 entry = self._climo_day_count(
                     def_id, definition, timespan, db_manager
                 )

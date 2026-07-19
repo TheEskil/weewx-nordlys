@@ -1,16 +1,19 @@
 <script lang="ts">
   import type { NordlysPayload, StatsEntry, TileConfig } from '../lib/types'
   import { formatValue } from '../lib/format'
+  import { emptyObsSet, obsKeysOf } from '../lib/empty'
 
   let { tile, payload }: { tile: TileConfig; payload: NordlysPayload } =
     $props()
 
   const span = $derived(tile.options?.span ?? 'month')
-  const obsKeys = $derived(
-    Array.isArray(tile.obs) ? tile.obs : tile.obs ? [tile.obs] : [],
+  const obsKeys = $derived(obsKeysOf(tile))
+  const empty = $derived(
+    tile.options?.always_show ? new Set<string>() : emptyObsSet(payload),
   )
   const rows = $derived(
     obsKeys
+      .filter((key) => !empty.has(key))
       .map((key) => ({ key, entry: payload.stats?.[span]?.[key] }))
       .filter((row): row is { key: string; entry: StatsEntry } =>
         Boolean(row.entry),
