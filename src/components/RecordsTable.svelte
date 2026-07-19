@@ -74,9 +74,23 @@
     if (sortBy !== index) return ''
     return sortAsc ? ' ↑' : ' ↓'
   }
+
+  // Aggregated spans are not raw archive records; say so to avoid
+  // mistaking e.g. hourly averages for individual observations.
+  const RESOLUTION: Record<string, string> = {
+    week: 'Hourly',
+    month: '3-hourly',
+    year: 'Daily',
+  }
+  const note = $derived(
+    columns.some((c) => c.entry.aggregate)
+      ? `${RESOLUTION[span] ?? 'Aggregated'} averages (rain: totals)`
+      : '',
+  )
 </script>
 
 {#if columns.length > 0}
+  {#if note}<p class="note">{note}</p>{/if}
   <div class="scroll">
     <table>
       <thead>
@@ -133,6 +147,12 @@
 {/if}
 
 <style>
+  .note {
+    font-size: var(--nl-fs-sm);
+    color: var(--nl-text-dim);
+    margin-bottom: var(--nl-space-1);
+  }
+
   .scroll {
     overflow-x: auto;
   }

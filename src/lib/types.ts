@@ -206,7 +206,9 @@ export interface TileOptions {
   /** chart kind: line | area | bar | scatter | windrose */
   chart?: string
   /** chart timespan: 24h | day | yesterday | week | month | year
-   * (default day = calendar today; 24h = trailing window) */
+   * (default day = calendar today; 24h = trailing window).
+   * On a stat tile, a span (yesterday/week/month/year/alltime/archive)
+   * makes it a period stat rendered from stats[span] instead of current. */
   span?: string
   /** wind-rose speed band upper bounds (report units) */
   bands?: number[]

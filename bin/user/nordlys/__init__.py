@@ -274,11 +274,20 @@ def _span_timespan(span, last_ts):
     return None
 
 
+def _is_period_stat(tile):
+    """A stat tile with a span reads period stats, not current."""
+    return tile.get('type') == 'stat' and bool(
+        (tile.get('options') or {}).get('span')
+    )
+
+
 def _collect_obs(pages):
     """Observation keys needing current data, in config order."""
     keys = []
     for tile in _tiles(pages):
         if tile.get('type') == 'chart':
+            continue
+        if _is_period_stat(tile):
             continue
         for obs in _obs_list(tile):
             if obs not in keys:
@@ -322,15 +331,17 @@ def _collect_chart_needs(pages):
 
 
 def _collect_stats_needs(pages):
-    """{span: [obs, ...]} referenced by stats-table tiles."""
+    """{span: [obs, ...]} referenced by stats-table and period stat tiles."""
     needs = {}
     for tile in _tiles(pages):
-        if tile.get('type') != 'table':
-            continue
         options = tile.get('options', {})
-        if options.get('table', 'stats') != 'stats':
+        tile_type = tile.get('type')
+        if tile_type == 'table' and options.get('table', 'stats') == 'stats':
+            span = options.get('span', 'month')
+        elif _is_period_stat(tile):
+            span = options['span']
+        else:
             continue
-        span = options.get('span', 'month')
         if span not in _STATS_SPANS and span not in ('alltime', 'archive'):
             continue
         span_obs = needs.setdefault(span, [])
@@ -412,6 +423,15 @@ def _validate_tile(page_id, tile):
         warnings.append(
             f"{where}: {tile_type} tile ignores obs '{obs[0]}'"
         )
+
+    # Period stat tiles read from stats[span]; validate the span.
+    if tile_type == 'stat' and options.get('span'):
+        span = options['span']
+        if span not in _STATS_SPANS and span not in ('alltime', 'archive'):
+            warnings.append(
+                f"{where}: unknown stat span '{span}' (expected "
+                f"{', '.join(sorted(_STATS_SPANS))}, alltime or archive)"
+            )
 
     if tile_type == 'chart':
         chart = options.get('chart', 'line')
