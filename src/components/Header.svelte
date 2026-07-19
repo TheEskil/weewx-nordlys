@@ -33,6 +33,33 @@
     event.preventDefault()
     onNavigate(id)
   }
+
+  // The tab row scrolls horizontally on narrow screens; a gradient fade
+  // hints at hidden tabs on whichever side has more, and the active tab
+  // is kept in view.
+  let navEl: HTMLElement | undefined = $state()
+  let atStart = $state(true)
+  let atEnd = $state(true)
+
+  function updateFade() {
+    if (!navEl) return
+    atStart = navEl.scrollLeft <= 1
+    atEnd = navEl.scrollLeft + navEl.clientWidth >= navEl.scrollWidth - 1
+  }
+
+  $effect(() => {
+    updateFade()
+    const onResize = () => updateFade()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  })
+
+  $effect(() => {
+    active // re-run when the active tab changes
+    const el = navEl?.querySelector('.active') as HTMLElement | undefined
+    el?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
+    updateFade()
+  })
 </script>
 
 <header>
@@ -56,7 +83,13 @@
       </span>
     {/if}
     {#if pages.length > 1}
-      <nav aria-label="Pages">
+      <nav
+        aria-label="Pages"
+        bind:this={navEl}
+        onscroll={updateFade}
+        style:--fade-l={atStart ? '0px' : '16px'}
+        style:--fade-r={atEnd ? '0px' : '16px'}
+      >
         {#each pages as page (page.id)}
           <a
             href={href(page.id)}
@@ -105,6 +138,7 @@
     display: flex;
     align-items: center;
     gap: var(--nl-space-3);
+    min-width: 0;
   }
 
   .live {
@@ -145,6 +179,29 @@
   nav {
     display: flex;
     gap: var(--nl-space-2);
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* Fade only the side that has more tabs to scroll to. */
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--fade-l, 0),
+      #000 calc(100% - var(--fade-r, 0)),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--fade-l, 0),
+      #000 calc(100% - var(--fade-r, 0)),
+      transparent 100%
+    );
+  }
+
+  nav::-webkit-scrollbar {
+    display: none;
   }
 
   nav a {
@@ -152,6 +209,8 @@
     color: var(--nl-text-dim);
     font-size: var(--nl-fs-sm);
     text-decoration: none;
+    white-space: nowrap;
+    scroll-margin: 0 12px;
     border-bottom: 2px solid transparent;
   }
 
