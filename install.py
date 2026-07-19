@@ -34,6 +34,7 @@ class NordlysInstaller(ExtensionInstaller):
                         'skins/Nordlys/week-%Y-%m-%d.html.tmpl',
                         'skins/Nordlys/month-%Y-%m.html.tmpl',
                         'skins/Nordlys/year-%Y.html.tmpl',
+                        'skins/Nordlys/climate-%Y.json.tmpl',
                         'skins/Nordlys/nordlys.webmanifest.tmpl',
                         'skins/Nordlys/sw.js',
                         'skins/Nordlys/icon.svg',

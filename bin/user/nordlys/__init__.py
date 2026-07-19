@@ -586,6 +586,10 @@ class NordlysSearchList(SearchList):
                 for page_id in pages_section.sections
             ]
 
+        # The live pages define what the Climate year picker swaps; keep
+        # them even when an archive page replaces config['pages'] below.
+        live_pages = list(config['pages'])
+
         if 'live' in getattr(nordlys_dict, 'sections', []):
             live = _section_items(nordlys_dict['live'])
             if live.get('broker'):
@@ -633,6 +637,15 @@ class NordlysSearchList(SearchList):
         empty_obs = self._empty_obs(
             _all_obs(pages), _forced_obs(pages), db_manager
         )
+
+        # Per-year climate slice (climate-<year>.json), generated for each
+        # SummaryByYear timespan and swapped in by the Climate year picker.
+        climate_slice = None
+        if period_kind == 'year':
+            climate_slice = self._climate_slice(
+                TimeSpan(timespan.start, timespan.stop),
+                live_pages, nordlys_dict, db_manager, empty_obs,
+            )
 
         if period:
             # Everything is scoped to the page's own period; "now"-style
@@ -713,9 +726,16 @@ class NordlysSearchList(SearchList):
 
         # Escape "</" so the payload is safe inside a <script> element.
         nordlys_json = json.dumps(payload, ensure_ascii=False).replace('</', '<\\/')
+        # Standalone per-year climate slice for climate-<year>.json.
+        climate_json = (
+            json.dumps(climate_slice, ensure_ascii=False)
+            if climate_slice
+            else ''
+        )
         return [
             {
                 'nordlys_json': nordlys_json,
+                'nordlys_climate_json': climate_json,
                 # For the server-rendered fallback markup in the template.
                 'nordlys_current': current,
                 # Optional user stylesheet (path relative to HTML_ROOT).
@@ -1055,27 +1075,39 @@ class NordlysSearchList(SearchList):
         if not last_ts:
             return None
 
+        # The main payload carries the current year, plus a lightweight
+        # index of every year so the Climate year picker renders without a
+        # fetch (past years are swapped in from climate-<year>.json).
+        year_span = archiveYearSpan(last_ts)
+        climatology = self._year_climatology(
+            year_span, nordlys_dict, calendar_needs, db_manager, empty_obs,
+            wants_days,
+        ) or {}
+        years = self._climate_years(db_manager)
+        if years:
+            climatology['years'] = years
+
+        return climatology or None
+
+    def _year_climatology(
+        self, year_span, nordlys_dict, calendar_needs, db_manager,
+        empty_obs, wants_days,
+    ):
+        """Climatological days + calendar heatmap scoped to one year."""
         climatology = {}
-        if wants_days:
+        if wants_days and 'climatological_days' in getattr(
+            nordlys_dict, 'sections', []
+        ):
             section = nordlys_dict['climatological_days']
-            span = section.get('span', 'year')
-            if span == 'year':
-                timespan = archiveYearSpan(last_ts)
-            else:
-                timespan = TimeSpan(last_ts - _SPAN_SECONDS.get(span, 31536000), last_ts)
             days = []
             for def_id in section.sections:
                 definition = _section_items(section[def_id])
-                # weewx merges weewx.conf over skin.conf but cannot delete
-                # a section, so a shipped default is removed with enable=false.
                 if not definition.get('enable', True):
                     continue
-                # A climatological-day count for an absent sensor (e.g.
-                # "rain days" with no rain gauge) is meaningless noise.
                 if definition.get('obs') in empty_obs:
                     continue
                 entry = self._climo_day_count(
-                    def_id, definition, timespan, db_manager
+                    def_id, definition, year_span, db_manager
                 )
                 if entry:
                     days.append(entry)
@@ -1084,12 +1116,52 @@ class NordlysSearchList(SearchList):
 
         for options in calendar_needs:
             obs_list = options.get('obs') or ['outTemp']
-            entry = self._calendar(obs_list[0], options, last_ts, db_manager)
+            entry = self._calendar(obs_list[0], options, year_span, db_manager)
             if entry:
                 climatology['calendar'] = entry
                 break  # one calendar per payload for now
-
         return climatology or None
+
+    @staticmethod
+    def _climate_years(db_manager):
+        """[{year, label}] newest first, with partial-year coverage in the
+        label so a count over a partial year can't silently mislead."""
+        first_ts = db_manager.firstGoodStamp()
+        last_ts = db_manager.lastGoodStamp()
+        if not first_ts or not last_ts:
+            return []
+        first_year = time.localtime(first_ts).tm_year
+        last_year = time.localtime(last_ts).tm_year
+        years = []
+        for year in range(last_year, first_year - 1, -1):
+            span = archiveYearSpan(int(time.mktime((year, 6, 15, 12, 0, 0, 0, 0, -1))))
+            if last_ts < span.stop - 86400:
+                label = f'{year} (so far)'
+            elif first_ts > span.start:
+                label = f'{year} (from {time.strftime("%b", time.localtime(first_ts))})'
+            else:
+                label = str(year)
+            years.append({'year': str(year), 'label': label})
+        return years
+
+    def _climate_slice(
+        self, year_span, live_pages, nordlys_dict, db_manager, empty_obs,
+    ):
+        """The per-year swap-in payload for climate-<year>.json: the
+        year-scoped climatology and year stats the Climate page renders."""
+        calendar_needs = _collect_chart_needs(live_pages)[2]
+        climatology = self._year_climatology(
+            year_span, nordlys_dict, calendar_needs, db_manager, empty_obs,
+            wants_days='climatology' in _collect_tile_types(live_pages),
+        )
+        year_obs = _collect_stats_needs(live_pages).get('year')
+        stats = (
+            self._stats_data({'year': year_obs}, db_manager, {'year': year_span})
+            if year_obs
+            else {}
+        )
+        year = time.strftime('%Y', time.localtime(year_span.start))
+        return {'year': year, 'climatology': climatology or {}, 'stats': stats}
 
     _OPS = {
         '<': lambda a, b: a < b,
@@ -1169,11 +1241,8 @@ class NordlysSearchList(SearchList):
             ).strip(),
         }
 
-    def _calendar(self, obs, options, last_ts, db_manager):
+    def _calendar(self, obs, options, timespan, db_manager):
         aggregate = options.get('aggregate', 'avg')
-        timespan = TimeSpan(
-            startOfDay(last_ts - 365 * 86400), last_ts
-        )
         labels = self.generator.skin_dict.get('Labels', {}).get('Generic', {})
 
         days = []

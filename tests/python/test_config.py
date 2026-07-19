@@ -384,6 +384,22 @@ class TestArchivePeriods(unittest.TestCase):
         self.assertTrue(_week_label(mon, week_start=6).startswith('Week of'))
 
 
+class TestClimateYears(unittest.TestCase):
+    def test_years_newest_first_with_coverage(self):
+        first = int(time.mktime((2024, 4, 10, 0, 0, 0, 0, 0, -1)))
+        last = int(time.mktime((2026, 7, 19, 0, 0, 0, 0, 0, -1)))
+        years = NordlysSearchList._climate_years(FakeDB(first, last))
+        self.assertEqual([y['year'] for y in years], ['2026', '2025', '2024'])
+        self.assertEqual(years[0]['label'], '2026 (so far)')  # current year
+        self.assertEqual(years[1]['label'], '2025')  # full year
+        self.assertTrue(years[2]['label'].startswith('2024 (from '))  # partial
+
+    def test_no_archive(self):
+        self.assertEqual(
+            NordlysSearchList._climate_years(FakeDB(first=None, last=None)), []
+        )
+
+
 class TestCollectChartNeeds(unittest.TestCase):
     def test_series_and_rose_split_by_span(self):
         pages = [
