@@ -64,6 +64,12 @@ export interface TileOptions {
   max?: number
   /** gauge style; 'compass' renders a wind-direction compass */
   style?: string
+  /** --nl-* token name (without prefix) or literal CSS color for the value/arc */
+  color?: string
+  /** below this value (report units), the --nl-cold semantic token applies */
+  cold_below?: number
+  /** above this value (report units), the --nl-hot semantic token applies */
+  hot_above?: number
   [key: string]: unknown
 }
 

@@ -6,17 +6,31 @@
     <meta name="color-scheme" content="dark light" />
     <title>$station.location</title>
     <link rel="stylesheet" href="dist/nordlys.css" />
+    #if $nordlys_user_css
+    <link rel="stylesheet" href="$nordlys_user_css" />
+    #end if
   </head>
   <body>
     ## Thin shell: the search-list extension serializes {meta, config, current}
     ## to JSON; the Nordlys front-end renders everything from it.
     <script id="nordlys-data" type="application/json">$nordlys_json</script>
     <div id="nordlys-app">
-      <noscript>
-        ## Server-rendered fallback (progressive enhancement; expanded in a
-        ## later milestone).
-        <p>$current.outTemp $current.barometer $current.windSpeed</p>
-      </noscript>
+      ## Server-rendered fallback: readable without JavaScript, replaced by
+      ## the app when it mounts.
+      <div class="nl-fallback">
+        <h1>$station.location</h1>
+        <dl>
+          #for $obs_key in $nordlys_current
+          #set $entry = $nordlys_current[$obs_key]
+          #if $entry['value'] is not None
+          <div>
+            <dt>$entry['label']</dt>
+            <dd>$entry['value'] $entry['unit']</dd>
+          </div>
+          #end if
+          #end for
+        </dl>
+      </div>
     </div>
     <script type="module" src="dist/nordlys.js"></script>
   </body>

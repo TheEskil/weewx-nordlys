@@ -55,3 +55,32 @@ a:focus-visible {
 .nl-num {
   font-variant-numeric: tabular-nums;
 }
+
+/* Server-rendered fallback shown before the app mounts (or without JS) */
+.nl-fallback {
+  max-width: var(--nl-max-width);
+  margin: 0 auto;
+  padding: var(--nl-space-3);
+}
+
+.nl-fallback h1 {
+  font-size: var(--nl-fs-lg);
+  margin-bottom: var(--nl-space-2);
+}
+
+.nl-fallback dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--nl-space-1) var(--nl-space-3);
+}
+
+.nl-fallback dt {
+  color: var(--nl-text-dim);
+  font-size: var(--nl-fs-sm);
+}
+
+.nl-fallback dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}

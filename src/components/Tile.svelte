@@ -23,7 +23,7 @@
       <Gauge {obs} title={tile.title} options={tile.options} />
     {/if}
   {:else if tile.type === 'stat' && obs}
-    <StatTile {obs} title={tile.title} />
+    <StatTile {obs} title={tile.title} options={tile.options} />
   {:else if tile.type === 'text'}
     <p class="text">{tile.title ?? ''}</p>
   {:else}

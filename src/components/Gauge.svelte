@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Observation, TileOptions } from '../lib/types'
-  import { formatObs, formatValue } from '../lib/format'
+  import { valueColor } from '../lib/color'
+  import { formatObs, formatTrend, formatValue } from '../lib/format'
 
   let {
     obs,
@@ -36,6 +37,7 @@
   )
   const [minX, minY] = point(START)
   const [maxX, maxY] = point(-START)
+  const arcColor = $derived(valueColor(obs.value, options))
 </script>
 
 <article>
@@ -46,10 +48,19 @@
   >
     <path class="track" d={arc(START, -START)} />
     {#if fraction !== null && fraction > 0}
-      <path class="value-arc" d={arc(START, START + SPAN * fraction)} />
+      <path
+        class="value-arc"
+        style:stroke={arcColor}
+        d={arc(START, START + SPAN * fraction)}
+      />
     {/if}
     <text class="value nl-num" x="50" y="52">{formatObs(obs)}</text>
     <text class="unit" x="50" y="64">{obs.unit}</text>
+    {#if obs.trend !== null && obs.trend !== undefined}
+      <text class="trend nl-num" x="50" y="80">
+        {formatTrend(obs.trend, obs.decimals ?? 1)}
+      </text>
+    {/if}
     <text class="bound nl-num" x={minX} y={minY + 10}>
       {formatValue(min, 0)}
     </text>
@@ -102,6 +113,11 @@
   }
 
   .bound {
+    font-size: 6px;
+    fill: var(--nl-text-dim);
+  }
+
+  .trend {
     font-size: 6px;
     fill: var(--nl-text-dim);
   }

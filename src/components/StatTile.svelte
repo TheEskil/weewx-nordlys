@@ -1,15 +1,20 @@
 <script lang="ts">
-  import type { Observation } from '../lib/types'
+  import type { Observation, TileOptions } from '../lib/types'
+  import { valueColor } from '../lib/color'
   import { formatObs, formatTrend, formatValue } from '../lib/format'
 
-  let { obs, title }: { obs: Observation; title?: string } = $props()
+  let {
+    obs,
+    title,
+    options,
+  }: { obs: Observation; title?: string; options?: TileOptions } = $props()
 
   const decimals = $derived(obs.decimals ?? 1)
 </script>
 
 <article>
   <h3>{title ?? obs.label}</h3>
-  <p class="value nl-num">
+  <p class="value nl-num" style:color={valueColor(obs.value, options)}>
     {formatObs(obs)}<span class="unit">{obs.unit}</span>
   </p>
   <div class="detail nl-num">
@@ -50,6 +55,11 @@
     font-weight: 400;
     color: var(--nl-text-dim);
     margin-left: var(--nl-space-0);
+  }
+
+  /* When the value is semantically colored, the unit stays dim. */
+  .value .unit {
+    color: var(--nl-text-dim);
   }
 
   .detail {

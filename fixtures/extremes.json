@@ -1,7 +1,7 @@
 {
   "meta": {
     "version": 1,
-    "generatedAt": 1784457000,
+    "generatedAt": 1770800400,
     "station": {
       "name": "Aldersundet weather",
       "location": "Aldersundet, Lurøy, Norway",
@@ -36,7 +36,7 @@
               {
                 "type": "gauge",
                 "obs": "windSpeed",
-                "options": { "min": 0, "max": 25 }
+                "options": { "min": 0, "max": 25, "hot_above": 15 }
               },
               {
                 "type": "gauge",
@@ -49,14 +49,18 @@
             "title": "Observations",
             "columns": 4,
             "tiles": [
-              { "type": "stat", "obs": "appTemp" },
+              { "type": "stat", "obs": "appTemp", "options": { "cold_below": 0 } },
               { "type": "stat", "obs": "dewpoint" },
               { "type": "stat", "obs": "outHumidity" },
-              { "type": "stat", "obs": "windGust" },
+              {
+                "type": "stat",
+                "obs": "windGust",
+                "options": { "hot_above": 20 }
+              },
               { "type": "stat", "obs": "rain" },
               { "type": "stat", "obs": "rainRate" },
               { "type": "stat", "obs": "UV", "options": { "hot_above": 5 } },
-              { "type": "stat", "obs": "radiation" }
+              { "type": "stat", "obs": "radiation", "options": { "color": "accent-3" } }
             ]
           }
         ]
@@ -65,93 +69,93 @@
   },
   "current": {
     "outTemp": {
-      "value": 13.6,
+      "value": -8.4,
       "unit": "°C",
       "label": "Outside temperature",
       "decimals": 1,
-      "min": { "value": 9.8, "time": "04:37" },
-      "max": { "value": 15.2, "time": "13:05" },
-      "trend": 0.4
+      "min": { "value": -11.2, "time": "05:20" },
+      "max": { "value": -4.1, "time": "13:10" },
+      "trend": -1.8
     },
     "appTemp": {
-      "value": 12.1,
+      "value": -16.3,
       "unit": "°C",
       "label": "Feels like",
       "decimals": 1,
-      "min": { "value": 8.2, "time": "04:41" },
-      "max": { "value": 13.9, "time": "13:07" }
+      "min": { "value": -18.9, "time": "06:45" },
+      "max": { "value": -9.6, "time": "13:20" }
     },
     "dewpoint": {
-      "value": 10.2,
+      "value": -10.8,
       "unit": "°C",
       "label": "Dew point",
       "decimals": 1,
-      "min": { "value": 8.9, "time": "02:15" },
-      "max": { "value": 11.4, "time": "12:33" }
+      "min": { "value": -13.5, "time": "04:10" },
+      "max": { "value": -6.2, "time": "12:55" }
     },
     "outHumidity": {
-      "value": 79,
+      "value": 94,
       "unit": "%",
       "label": "Humidity",
       "decimals": 0,
-      "min": { "value": 68, "time": "13:22" },
-      "max": { "value": 93, "time": "03:50" }
+      "min": { "value": 81, "time": "13:35" },
+      "max": { "value": 97, "time": "02:20" }
     },
     "barometer": {
-      "value": 1012.4,
+      "value": 978.2,
       "unit": "hPa",
       "label": "Barometer",
       "decimals": 1,
-      "min": { "value": 1011.8, "time": "11:10" },
-      "max": { "value": 1016.2, "time": "00:15" },
-      "trend": -1.2
+      "min": { "value": 978.2, "time": "15:40" },
+      "max": { "value": 994.6, "time": "00:05" },
+      "trend": -3.2
     },
     "windSpeed": {
-      "value": 4.2,
+      "value": 18.4,
       "unit": "m/s",
       "label": "Wind speed",
       "decimals": 1,
-      "max": { "value": 7.1, "time": "12:50" }
+      "max": { "value": 21.7, "time": "14:50" }
     },
     "windGust": {
-      "value": 6.4,
+      "value": 26.1,
       "unit": "m/s",
       "label": "Wind gust",
       "decimals": 1,
-      "max": { "value": 9.8, "time": "12:50" }
+      "max": { "value": 29.3, "time": "14:50" }
     },
     "windDir": {
-      "value": 215,
+      "value": 350,
       "unit": "°",
       "label": "Wind direction",
       "decimals": 0
     },
     "rain": {
-      "value": 1.2,
+      "value": 14.6,
       "unit": "mm",
       "label": "Rain today",
       "decimals": 1
     },
     "rainRate": {
-      "value": 0.0,
+      "value": 3.2,
       "unit": "mm/h",
       "label": "Rain rate",
       "decimals": 1,
-      "max": { "value": 2.4, "time": "06:12" }
+      "max": { "value": 6.8, "time": "11:05" }
     },
     "UV": {
-      "value": 2.4,
+      "value": 6.2,
       "unit": "",
       "label": "UV index",
       "decimals": 1,
-      "max": { "value": 3.1, "time": "12:20" }
+      "max": { "value": 6.8, "time": "12:30" }
     },
     "radiation": {
-      "value": 310,
+      "value": 28,
       "unit": "W/m²",
       "label": "Solar radiation",
       "decimals": 0,
-      "max": { "value": 542, "time": "12:35" }
+      "max": { "value": 65, "time": "12:10" }
     }
   }
 }

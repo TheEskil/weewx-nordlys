@@ -132,6 +132,7 @@ class NordlysSearchList(SearchList):
                 for page_id in pages_section.sections
             ]
 
+        current = self._current_data(config['pages'], db_lookup)
         payload = {
             'meta': {
                 'version': CONTRACT_VERSION,
@@ -145,12 +146,20 @@ class NordlysSearchList(SearchList):
                 },
             },
             'config': config,
-            'current': self._current_data(config['pages'], db_lookup),
+            'current': current,
         }
 
         # Escape "</" so the payload is safe inside a <script> element.
         nordlys_json = json.dumps(payload, ensure_ascii=False).replace('</', '<\\/')
-        return [{'nordlys_json': nordlys_json}]
+        return [
+            {
+                'nordlys_json': nordlys_json,
+                # For the server-rendered fallback markup in the template.
+                'nordlys_current': current,
+                # Optional user stylesheet (path relative to HTML_ROOT).
+                'nordlys_user_css': nordlys_dict.get('user_css', ''),
+            }
+        ]
 
     # ------------------------------------------------------------------
     # current data

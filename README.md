@@ -24,7 +24,11 @@ npm install
 npm run dev     # dev server against fixtures/ JSON (no weewx needed)
 npm run build   # builds the front-end into skins/Nordlys/dist/
 npm run check   # svelte-check / TypeScript
+npm test        # vitest unit tests
 ```
+
+The dev server renders `fixtures/today.json`; append `?fixture=extremes`
+to preview the winter-storm fixture (semantic cold/hot coloring).
 
 To exercise the full weewx pipeline locally (report generation with a
 synthetic 7-day archive database):

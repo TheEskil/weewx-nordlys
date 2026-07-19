@@ -49,7 +49,13 @@ and the front-end fetches it.
                 "type": "gauge",   // gauge | stat | chart | table | text
                 "obs": "outTemp",  // key into "current"
                 "title": "…",      // optional; defaults to obs label
-                "options": { "min": -20, "max": 35, "style": "compass", … }
+                "options": {
+                  "min": -20, "max": 35,   // gauge bounds
+                  "style": "compass",      // gauge variant
+                  "color": "accent-2",     // --nl-* token name or literal CSS color
+                  "cold_below": 0,         // semantic --nl-cold below this value
+                  "hot_above": 25          // semantic --nl-hot above this value
+                }
               }
             ]
           }
@@ -88,6 +94,14 @@ and the front-end fetches it.
   three hours.
 - **Theme overrides**: token names are the `--nl-*` custom properties
   without the prefix (see `src/theme/tokens.css` for the full set).
+- **Tile coloring**: `options.color` sets the value/arc color (token name
+  or literal). `cold_below`/`hot_above` (report units) switch to the
+  semantic `--nl-cold`/`--nl-hot` tokens when crossed; they win over
+  `color`. Values are compared exclusively (a value exactly at the bound
+  keeps the default color).
+- **Unknown options**: tile options are passed through verbatim from
+  skin.conf, so future tile types can add options without a contract
+  bump; the front-end ignores options it does not know.
 - **Escaping**: the serialized JSON has `</` escaped as `<\/` so it is
   safe inside a `<script>` element; `JSON.parse` is unaffected.
 
