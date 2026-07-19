@@ -170,6 +170,8 @@ export interface WindRoseData {
 
 export interface Meta {
   version: number
+  /** skin.conf SKIN_VERSION, surfaced in the footer for bug reports */
+  skinVersion?: string
   generatedAt: number
   station: Station
 }

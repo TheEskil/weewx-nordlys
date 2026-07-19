@@ -725,6 +725,7 @@ class NordlysSearchList(SearchList):
         payload = {
             'meta': {
                 'version': CONTRACT_VERSION,
+                'skinVersion': skin_dict.get('SKIN_VERSION'),
                 'generatedAt': int(time.time()),
                 'station': {
                     'name': nordlys_dict.get('site_name', stn_info.location),
