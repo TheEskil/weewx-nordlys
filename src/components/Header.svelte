@@ -8,15 +8,31 @@
     active,
     live = 'off',
     period = null,
+    href,
     onNavigate,
   }: {
     station: Station
     pages: PageConfig[]
-    active: string
+    active: string | undefined
     live?: LiveStatus
     period?: PeriodInfo | null
+    href: (id: string) => string
     onNavigate: (id: string) => void
   } = $props()
+
+  function onNavClick(event: MouseEvent, id: string) {
+    // Let the browser handle modified clicks (new tab, etc.).
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return
+    event.preventDefault()
+    onNavigate(id)
+  }
 </script>
 
 <header>
@@ -42,14 +58,14 @@
     {#if pages.length > 1}
       <nav aria-label="Pages">
         {#each pages as page (page.id)}
-          <button
-            type="button"
+          <a
+            href={href(page.id)}
             class:active={page.id === active}
             aria-current={page.id === active ? 'page' : undefined}
-            onclick={() => onNavigate(page.id)}
+            onclick={(event) => onNavClick(event, page.id)}
           >
             {page.title}
-          </button>
+          </a>
         {/each}
       </nav>
     {/if}
@@ -131,22 +147,19 @@
     gap: var(--nl-space-2);
   }
 
-  nav button {
-    border: none;
-    background: none;
+  nav a {
     padding: var(--nl-space-0) 0;
     color: var(--nl-text-dim);
-    font: inherit;
     font-size: var(--nl-fs-sm);
-    cursor: pointer;
+    text-decoration: none;
     border-bottom: 2px solid transparent;
   }
 
-  nav button:hover {
+  nav a:hover {
     color: var(--nl-text);
   }
 
-  nav button.active {
+  nav a.active {
     color: var(--nl-text);
     border-bottom-color: var(--nl-accent);
   }

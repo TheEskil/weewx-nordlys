@@ -12,31 +12,53 @@
   const data = $state(payload)
   let liveStatus: LiveStatus = $state('off')
 
-  // Tabs are addressable via #<page-id> so archive "‹ Current" links can
-  // return to a specific tab and tabs are bookmarkable/shareable.
-  function pageFromHash(): string | undefined {
-    const id = location.hash.replace(/^#/, '')
-    return payload.config.pages.some((p) => p.id === id) ? id : undefined
+  // Every page has a canonical URL (index.html for the first page,
+  // <id>.html otherwise). Real files mean navigation works without JS;
+  // with JS, clicks pushState and render in place from the shared payload.
+  function hrefFor(id: string): string {
+    return id === payload.config.pages[0]?.id ? 'index.html' : `${id}.html`
+  }
+  function pageFromUrl(): string | undefined {
+    const file = location.pathname.split('/').pop() || 'index.html'
+    if (file === '' || file === 'index.html') return payload.config.pages[0]?.id
+    const id = file.replace(/\.html$/, '')
+    return payload.config.pages.some((p) => p.id === id)
+      ? id
+      : payload.config.pages[0]?.id
   }
 
   // svelte-ignore state_referenced_locally
-  let activePageId = $state(pageFromHash() ?? payload.config.pages[0]?.id)
+  let activePageId = $state(pageFromUrl())
   const activePage = $derived(
     data.config.pages.find((p) => p.id === activePageId),
   )
 
+  function updateMeta(id: string) {
+    const page = data.config.pages.find((p) => p.id === id)
+    if (page) document.title = `${page.title} · ${data.meta.station.name}`
+    document
+      .querySelector('link[rel="canonical"]')
+      ?.setAttribute('href', hrefFor(id))
+  }
+
   function navigate(id: string) {
+    if (id === activePageId) return
     activePageId = id
-    if (location.hash.replace(/^#/, '') !== id) location.hash = id
+    history.pushState({ id }, '', hrefFor(id))
+    updateMeta(id)
+    window.scrollTo(0, 0)
   }
 
   $effect(() => {
-    const onHash = () => {
-      const id = pageFromHash()
-      if (id) activePageId = id
+    const onPop = () => {
+      const id = pageFromUrl()
+      if (id) {
+        activePageId = id
+        updateMeta(id)
+      }
     }
-    window.addEventListener('hashchange', onHash)
-    return () => window.removeEventListener('hashchange', onHash)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
   })
   const generated = $derived(
     new Date(data.meta.generatedAt * 1000).toLocaleString(undefined, {
@@ -82,6 +104,7 @@
     active={activePageId}
     live={liveStatus}
     period={data.period}
+    href={hrefFor}
     onNavigate={navigate}
   />
 
