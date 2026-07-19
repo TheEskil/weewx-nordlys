@@ -10,6 +10,10 @@
       "type": "object",
       "properties": {
         "mode": { "enum": ["auto", "dark", "light"] },
+        "switcher": {
+          "type": "boolean",
+          "description": "Show the header theme switch (default true)."
+        },
         "dark": { "$ref": "#/$defs/tokenOverrides" },
         "light": { "$ref": "#/$defs/tokenOverrides" }
       },

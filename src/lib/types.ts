@@ -212,6 +212,8 @@ export interface LiveConfig {
 
 export interface ThemeConfig {
   mode?: 'auto' | 'dark' | 'light'
+  /** show the header theme switch (default true) */
+  switcher?: boolean
   /** --nl-* token overrides, without the prefix (e.g. accent = "#3ddc97") */
   dark?: Record<string, string>
   light?: Record<string, string>

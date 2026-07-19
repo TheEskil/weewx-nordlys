@@ -10,6 +10,18 @@
     <link rel="manifest" href="nordlys.webmanifest" />
     <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#f6f9fc" media="(prefers-color-scheme: light)" />
+    <script>
+      // Apply the visitor's saved theme (or the skin mode) before first
+      // paint so there is no flash of the wrong theme.
+      (function () {
+        try {
+          var c = localStorage.getItem('nordlys-theme');
+          var mode = c === 'light' || c === 'dark' ? c : '$nordlys_theme_mode';
+          if (mode === 'light' || mode === 'dark')
+            document.documentElement.dataset.theme = mode;
+        } catch (e) {}
+      })();
+    </script>
     <link rel="stylesheet" href="dist/nordlys.css" />
     #if $nordlys_user_css
     <link rel="stylesheet" href="$nordlys_user_css" />

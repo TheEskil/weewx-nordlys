@@ -143,7 +143,14 @@
     create()
 
     // Recreate on theme flips (colors are resolved to concrete values).
+    // uPlot follows neither prefers-color-scheme nor the data-theme the
+    // switcher toggles, so watch both.
     media.addEventListener('change', create)
+    const themeObserver = new MutationObserver(create)
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    })
     const resize = new ResizeObserver(() => {
       if (plot && container) plot.setSize({ width: container.clientWidth, height: 190 })
     })
@@ -151,6 +158,7 @@
 
     return () => {
       media.removeEventListener('change', create)
+      themeObserver.disconnect()
       resize.disconnect()
       plot?.destroy()
     }

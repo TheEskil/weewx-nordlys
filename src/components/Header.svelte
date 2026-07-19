@@ -1,6 +1,12 @@
 <script lang="ts">
-  import type { PageConfig, PeriodInfo, Station } from '../lib/types'
+  import type {
+    PageConfig,
+    PeriodInfo,
+    Station,
+    ThemeConfig,
+  } from '../lib/types'
   import type { LiveStatus } from '../lib/live'
+  import ThemeSwitch from './ThemeSwitch.svelte'
 
   let {
     station,
@@ -8,6 +14,7 @@
     active,
     live = 'off',
     period = null,
+    theme,
     href,
     onNavigate,
   }: {
@@ -16,6 +23,7 @@
     active: string | undefined
     live?: LiveStatus
     period?: PeriodInfo | null
+    theme?: ThemeConfig
     href: (id: string) => string
     onNavigate: (id: string) => void
   } = $props()
@@ -76,12 +84,6 @@
   </div>
 
   <div class="right">
-    {#if live !== 'off'}
-      <span class="live {live}" title="Live updates: {live}">
-        <span class="dot" aria-hidden="true"></span>
-        live
-      </span>
-    {/if}
     {#if pages.length > 1}
       <nav
         aria-label="Pages"
@@ -102,6 +104,17 @@
         {/each}
       </nav>
     {/if}
+    <div class="controls">
+      {#if theme?.switcher !== false}
+        <ThemeSwitch skinMode={theme?.mode} />
+      {/if}
+      {#if live !== 'off'}
+        <span class="live {live}" title="Live updates: {live}">
+          <span class="dot" aria-hidden="true"></span>
+          live
+        </span>
+      {/if}
+    </div>
   </div>
 </header>
 
@@ -139,6 +152,13 @@
     align-items: center;
     gap: var(--nl-space-3);
     min-width: 0;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: var(--nl-space-2);
+    flex: none;
   }
 
   .live {
