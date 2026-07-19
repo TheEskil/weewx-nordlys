@@ -5,6 +5,7 @@ Run with: .venv/bin/python -m unittest discover tests/python
 
 import os
 import sys
+import time
 import unittest
 
 from configobj import ConfigObj
@@ -25,6 +26,7 @@ from nordlys import (  # noqa: E402
     NordlysSearchList,
     _all_obs,
     _coerce,
+    _span_timespan,
     _collect_chart_needs,
     _collect_obs,
     _collect_stats_needs,
@@ -92,6 +94,16 @@ class TestTileConfig(unittest.TestCase):
         config = section(['[celestial]', 'type = celestial', 'obs = outTemp'])
         tile = _tile_config('celestial', config['celestial'])
         self.assertEqual(tile, {'type': 'celestial', 'obs': 'outTemp'})
+
+    def test_windrose_chart_does_not_inherit_section_name(self):
+        config = section(['[windrose]', 'type = chart', 'chart = windrose'])
+        tile = _tile_config('windrose', config['windrose'])
+        self.assertNotIn('obs', tile)
+
+    def test_calendar_chart_keeps_section_name_obs(self):
+        config = section(['[outTemp]', 'type = chart', 'chart = calendar'])
+        tile = _tile_config('outTemp', config['outTemp'])
+        self.assertEqual(tile['obs'], 'outTemp')
 
 
 class TestPageConfig(unittest.TestCase):
@@ -305,6 +317,34 @@ class TestAverage(unittest.TestCase):
         self.assertIsNone(self.sle._average('foo', None, None, 1))
 
 
+class TestSpanTimespan(unittest.TestCase):
+    # 2026-07-15 12:00:00 local.
+    TS = int(time.mktime((2026, 7, 15, 12, 0, 0, 0, 0, -1)))
+
+    def test_24h_is_trailing_window(self):
+        span = _span_timespan('24h', self.TS)
+        self.assertEqual(span.stop - span.start, 86400)
+        self.assertEqual(span.stop, self.TS)
+
+    def test_day_is_calendar_today(self):
+        span = _span_timespan('day', self.TS)
+        midnight = int(time.mktime((2026, 7, 15, 0, 0, 0, 0, 0, -1)))
+        self.assertEqual(span.start, midnight)
+
+    def test_yesterday_is_previous_calendar_day(self):
+        span = _span_timespan('yesterday', self.TS)
+        start = int(time.mktime((2026, 7, 14, 0, 0, 0, 0, 0, -1)))
+        stop = int(time.mktime((2026, 7, 15, 0, 0, 0, 0, 0, -1)))
+        self.assertEqual((span.start, span.stop), (start, stop))
+
+    def test_week_is_rolling(self):
+        span = _span_timespan('week', self.TS)
+        self.assertEqual(span.stop - span.start, 7 * 86400)
+
+    def test_unknown_span(self):
+        self.assertIsNone(_span_timespan('decade', self.TS))
+
+
 class TestCollectChartNeeds(unittest.TestCase):
     def test_series_and_rose_split_by_span(self):
         pages = [
@@ -453,6 +493,21 @@ class TestValidateConfig(unittest.TestCase):
         )
         self.assertEqual(validate_config(config), [])
 
+    def test_new_chart_spans_valid(self):
+        for span in ('24h', 'day', 'yesterday', 'year'):
+            config = self._page(
+                [
+                    {
+                        'type': 'chart',
+                        'obs': ['outTemp'],
+                        'options': {'chart': 'line', 'span': span},
+                    }
+                ]
+            )
+            self.assertEqual(
+                validate_config(config), [], f'{span} should be a valid chart span'
+            )
+
     def test_empty_pages_warns(self):
         self.assertTrue(validate_config({'pages': []}))
 
@@ -502,12 +557,27 @@ class TestValidateConfig(unittest.TestCase):
                     {
                         'type': 'table',
                         'obs': ['outTemp'],
-                        'options': {'table': 'stats', 'span': 'day'},
+                        'options': {'table': 'stats', 'span': 'decade'},
                     }
                 ]
             )
         )
-        self.assertIn("unknown stats span 'day'", warnings[0])
+        self.assertIn("unknown stats span 'decade'", warnings[0])
+
+    def test_calendar_day_stats_spans_valid(self):
+        for span in ('day', 'yesterday'):
+            warnings = validate_config(
+                self._page(
+                    [
+                        {
+                            'type': 'table',
+                            'obs': ['outTemp'],
+                            'options': {'table': 'stats', 'span': span},
+                        }
+                    ]
+                )
+            )
+            self.assertEqual(warnings, [], f'{span} should be a valid stats span')
 
 
 class TestValidateClimoDays(unittest.TestCase):
