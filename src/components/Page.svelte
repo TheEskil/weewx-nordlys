@@ -2,6 +2,7 @@
   import type { NordlysPayload, PageConfig } from '../lib/types'
   import Tile from './Tile.svelte'
   import PeriodPicker from './PeriodPicker.svelte'
+  import ClimateYearPicker from './ClimateYearPicker.svelte'
 
   let {
     page,
@@ -13,14 +14,35 @@
 
   // A period picker rides on the first row, opposite its title.
   const showPicker = $derived(Boolean(page.picker || payload.period))
+
+  // The Climate page (year-scoped content, no navigation picker) gets a
+  // year picker that swaps data in place instead of navigating.
+  const isClimate = $derived(
+    !page.picker &&
+      !payload.period &&
+      page.layout.some((row) =>
+        row.tiles.some(
+          (t) =>
+            t.type === 'climatology' ||
+            (t.type === 'chart' && t.options?.chart === 'calendar') ||
+            (t.type === 'table' &&
+              t.options?.table === 'stats' &&
+              t.options?.span === 'year'),
+        ),
+      ),
+  )
+  const showClimateYear = $derived(
+    isClimate && (payload.climatology?.years?.length ?? 0) > 1,
+  )
 </script>
 
 {#each page.layout as row, i (i)}
   <section>
-    {#if row.title || (i === 0 && showPicker)}
+    {#if row.title || (i === 0 && (showPicker || showClimateYear))}
       <div class="head">
         {#if row.title}<h2>{row.title}</h2>{/if}
         {#if i === 0 && showPicker}<PeriodPicker {page} {payload} />{/if}
+        {#if i === 0 && showClimateYear}<ClimateYearPicker {payload} />{/if}
       </div>
     {/if}
     <div class="grid" style:--row-cols={row.columns ?? 4}>
@@ -53,7 +75,8 @@
     color: var(--nl-text-dim);
   }
 
-  .head :global(.picker) {
+  .head :global(.picker),
+  .head :global(.wrap) {
     margin-left: auto;
   }
 

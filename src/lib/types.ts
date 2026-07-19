@@ -67,6 +67,21 @@ export interface StatsEntry {
 export interface Climatology {
   days?: ClimoDay[]
   calendar?: CalendarData
+  /** every year in the archive (newest first) for the Climate year picker */
+  years?: ClimateYear[]
+}
+
+export interface ClimateYear {
+  year: string
+  /** partial-year coverage, e.g. "2026 (so far)", "2025 (from Apr)" */
+  label: string
+}
+
+/** climate-<year>.json: the year-scoped slice swapped in by the picker */
+export interface ClimateSlice {
+  year: string
+  climatology: { days?: ClimoDay[]; calendar?: CalendarData }
+  stats: Record<string, Record<string, StatsEntry>>
 }
 
 export interface ClimoDay {
