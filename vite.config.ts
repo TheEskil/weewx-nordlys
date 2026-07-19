@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 // Built assets ship inside the weewx skin and are referenced from Cheetah
@@ -6,6 +6,11 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 // is handled with a ?v=<skin version> query in the templates.
 export default defineConfig({
   plugins: [svelte()],
+  // Vitest runs the co-located unit tests only; the Playwright end-to-end
+  // specs under tests/e2e/ are owned by `npm run e2e`, not vitest.
+  test: {
+    include: ['src/**/*.test.ts'],
+  },
   build: {
     outDir: 'skins/Nordlys/dist',
     emptyOutDir: true,
