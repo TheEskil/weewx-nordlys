@@ -28,6 +28,7 @@ from nordlys import (  # noqa: E402
     _all_obs,
     _celestial_sections,
     _coerce,
+    _formats_config,
     _reports_stats_obs,
     _detect_period,
     _gen_week_spans,
@@ -144,6 +145,20 @@ class TestPageConfig(unittest.TestCase):
         self.assertEqual(
             now['tiles'][1]['options'], {'style': 'compass'}
         )
+
+
+class TestFormatsConfig(unittest.TestCase):
+    def test_absent_section_uses_defaults(self):
+        # [[formats]] absent -> a plain {} is passed; must not crash.
+        formats = _formats_config({})
+        self.assertEqual(formats['time'], '%H:%M')
+        self.assertEqual(formats['datetime'], '%d %b %Y, %H:%M')
+
+    def test_override_merges_over_defaults(self):
+        config = section(['[formats]', 'time = %I:%M %p'])
+        formats = _formats_config(config['formats'])
+        self.assertEqual(formats['time'], '%I:%M %p')
+        self.assertEqual(formats['date'], '%d %b')  # default kept
 
 
 class TestThemeConfig(unittest.TestCase):
