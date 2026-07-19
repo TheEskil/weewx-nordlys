@@ -166,6 +166,12 @@ class TestThemeConfig(unittest.TestCase):
         config = section(['[theme]'])
         self.assertEqual(_theme_config(config['theme']), {'mode': 'auto'})
 
+    def test_switcher_flag(self):
+        config = section(['[theme]', 'switcher = false'])
+        self.assertEqual(
+            _theme_config(config['theme']), {'mode': 'auto', 'switcher': False}
+        )
+
 
 class TestCollectObs(unittest.TestCase):
     def test_dedupes_preserving_order(self):

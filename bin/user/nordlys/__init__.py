@@ -228,6 +228,8 @@ def _page_config(page_id, section):
 
 def _theme_config(section):
     theme = {'mode': section.get('mode', 'auto')}
+    if 'switcher' in section:
+        theme['switcher'] = _coerce(section['switcher'])
     for mode in ('dark', 'light'):
         if mode in section.sections:
             tokens = _section_items(section[mode])
@@ -776,6 +778,8 @@ class NordlysSearchList(SearchList):
                 'nordlys_climate_json': climate_json,
                 # For the server-rendered fallback markup in the template.
                 'nordlys_current': current,
+                # Skin theme mode for the no-flash <head> bootstrap.
+                'nordlys_theme_mode': config.get('theme', {}).get('mode', 'auto'),
                 # Optional user stylesheet (path relative to HTML_ROOT).
                 'nordlys_user_css': nordlys_dict.get('user_css', ''),
             }

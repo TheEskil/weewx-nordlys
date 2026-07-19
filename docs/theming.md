@@ -15,7 +15,16 @@ can see, you can re-theme from config.
 [Nordlys]
     [[theme]]
         mode = auto     # auto (default) | dark | light
+        switcher = true # header theme switch (default true)
 ```
+
+`mode` is the station default. The header carries a three-state theme
+switch (auto -> light -> dark -> auto) whose choice persists per browser
+in `localStorage` and **overrides** `mode` for that visitor - so a forced
+`mode = dark` still lets a visitor pick light, and one click returns to
+auto. A tiny `<head>` script applies the saved choice before first paint
+(no flash). Precedence: **visitor choice > `mode` > system**. Set
+`switcher = false` to hide the switch and pin `mode`.
 
 ## Overriding tokens
 

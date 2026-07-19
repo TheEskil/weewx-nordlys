@@ -104,6 +104,7 @@
     active={activePageId}
     live={liveStatus}
     period={data.period}
+    theme={data.config.theme}
     href={hrefFor}
     onNavigate={navigate}
   />
