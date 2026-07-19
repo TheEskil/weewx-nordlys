@@ -135,6 +135,10 @@ value then reads "-").
 ```
 
 **stat** - `color`, `cold_below`, `hot_above` as above (colors the value).
+With a `span` (`day`/`yesterday`/`week`/`month`/`year`/`alltime`/`archive`)
+the tile becomes a **period** stat: the hero value is the period average
+(the total for rain), the detail row shows the period min/max, and there
+is no trend or live update. Without a span it shows current conditions.
 
 **chart**
 

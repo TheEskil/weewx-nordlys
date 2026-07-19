@@ -13,15 +13,33 @@
   import Forecast from './Forecast.svelte'
   import Reports from './Reports.svelte'
   import { tileIsEmpty } from '../lib/empty'
+  import { periodObs } from '../lib/period'
 
   let { tile, payload }: { tile: TileConfig; payload: NordlysPayload } =
     $props()
 
   const obsKey = $derived(Array.isArray(tile.obs) ? tile.obs[0] : tile.obs)
-  const obs = $derived(obsKey ? payload.current[obsKey] : undefined)
+  // A stat tile with a span renders period stats (stats[span]) instead of
+  // current conditions.
+  const statSpan = $derived(tile.type === 'stat' ? tile.options?.span : undefined)
+  const periodEntry = $derived(
+    statSpan && obsKey ? payload.stats?.[statSpan]?.[obsKey] : undefined,
+  )
+  const obs = $derived(
+    statSpan
+      ? periodEntry
+        ? periodObs(periodEntry)
+        : undefined
+      : obsKey
+        ? payload.current[obsKey]
+        : undefined,
+  )
   const isChart = $derived(tile.type === 'chart')
-  // Absent sensors are hidden entirely rather than showing empty tiles.
-  const hidden = $derived(tileIsEmpty(tile, payload))
+  // Absent sensors (and period stat tiles with no stats for the span) are
+  // hidden entirely rather than showing empty tiles.
+  const hidden = $derived(
+    tileIsEmpty(tile, payload) || (statSpan !== undefined && !periodEntry),
+  )
 </script>
 
 {#if !hidden}

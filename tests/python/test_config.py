@@ -426,6 +426,39 @@ class TestCollectStatsNeeds(unittest.TestCase):
             _collect_stats_needs(pages), {'week': ['outTemp', 'rain']}
         )
 
+    def test_period_stat_tiles_feed_stats_needs(self):
+        pages = [
+            {
+                'layout': [
+                    {
+                        'tiles': [
+                            {'type': 'stat', 'obs': 'outTemp', 'options': {'span': 'year'}},
+                            {'type': 'stat', 'obs': 'rain', 'options': {'span': 'year'}},
+                            {'type': 'stat', 'obs': 'UV'},  # current, no span
+                        ]
+                    }
+                ]
+            }
+        ]
+        self.assertEqual(
+            _collect_stats_needs(pages), {'year': ['outTemp', 'rain']}
+        )
+
+    def test_period_stat_tiles_excluded_from_current(self):
+        pages = [
+            {
+                'layout': [
+                    {
+                        'tiles': [
+                            {'type': 'stat', 'obs': 'outTemp', 'options': {'span': 'week'}},
+                            {'type': 'stat', 'obs': 'UV'},
+                        ]
+                    }
+                ]
+            }
+        ]
+        self.assertEqual(_collect_obs(pages), ['UV'])
+
     def test_records_tables_feed_series_needs(self):
         pages = [
             {
@@ -519,6 +552,19 @@ class TestValidateConfig(unittest.TestCase):
     def test_gauge_without_obs(self):
         warnings = validate_config(self._page([{'type': 'gauge'}]))
         self.assertIn('gauge tile needs an obs', warnings[0])
+
+    def test_period_stat_span_valid(self):
+        for span in ('week', 'month', 'year', 'yesterday', 'alltime', 'archive'):
+            warnings = validate_config(
+                self._page([{'type': 'stat', 'obs': 'outTemp', 'options': {'span': span}}])
+            )
+            self.assertEqual(warnings, [], f'{span} should be a valid stat span')
+
+    def test_period_stat_span_invalid(self):
+        warnings = validate_config(
+            self._page([{'type': 'stat', 'obs': 'outTemp', 'options': {'span': '24h'}}])
+        )
+        self.assertIn("unknown stat span '24h'", warnings[0])
 
     def test_obs_on_non_obs_tile_warns(self):
         warnings = validate_config(
