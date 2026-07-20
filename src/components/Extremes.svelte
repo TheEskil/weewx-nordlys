@@ -6,15 +6,13 @@
   let { obs }: { obs: Observation } = $props()
 
   const decimals = $derived(obs.decimals ?? 1)
-  const has = $derived(
-    Boolean(obs.min) || obs.avg !== undefined || Boolean(obs.max),
-  )
+  const has = $derived(Boolean(obs.min) || Boolean(obs.max))
 </script>
 
 {#if has}
   <div class="extremes nl-num">
     {#if obs.min}
-      <span class="item">
+      <span class="item min">
         <span class="v">
           <Glyph kind="min" label="lowest" />
           <span>{formatValue(obs.min.value, decimals)}<span class="unit"
@@ -24,19 +22,8 @@
         <span class="time">{obs.min.time ?? ''}</span>
       </span>
     {/if}
-    {#if obs.avg !== undefined}
-      <span class="item">
-        <span class="v">
-          <Glyph kind="avg" label="average" />
-          <span>{formatValue(obs.avg, decimals)}<span class="unit"
-              >{obs.unit}</span
-            ></span>
-        </span>
-        <span class="time"></span>
-      </span>
-    {/if}
     {#if obs.max}
-      <span class="item">
+      <span class="item max">
         <span class="v">
           <Glyph kind="max" label="highest" />
           <span>{formatValue(obs.max.value, decimals)}<span class="unit"
@@ -50,13 +37,13 @@
 {/if}
 
 <style>
-  /* min / avg / max spread across the row as aligned columns: the value sits
-     on the top line (glyph + number), the time hangs beneath it. */
+  /* Two columns: the day's low pinned left, the high pinned right, each with
+     its timestamp tucked beneath. */
   .extremes {
     display: flex;
     justify-content: space-between;
     align-items: start;
-    gap: var(--nl-space-1) var(--nl-space-3);
+    gap: var(--nl-space-3);
     color: var(--nl-text-dim);
   }
 
@@ -65,6 +52,13 @@
     flex-direction: column;
     gap: 0.1em;
     min-width: 0;
+  }
+
+  /* The high sits on the right even when there is no low (max-only obs). */
+  .item.max {
+    margin-left: auto;
+    align-items: flex-end;
+    text-align: right;
   }
 
   .v {
@@ -83,7 +77,10 @@
     font-size: 0.85em;
     line-height: 1;
     opacity: 0.55;
-    /* line the time up under the number, past the glyph */
+  }
+
+  /* Line each time up under its number, past the glyph. */
+  .item.min .time {
     padding-left: calc(10px + 0.3em);
   }
 </style>

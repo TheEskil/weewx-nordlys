@@ -167,8 +167,8 @@
     font-size: var(--nl-fs-sm);
   }
 
-  /* The min/avg/max row is centered beneath the gauge label. */
+  /* Low pinned left, high pinned right, beneath the gauge label. */
   .extremes-row :global(.extremes) {
-    justify-content: center;
+    justify-content: space-between;
   }
 </style>

@@ -52,7 +52,7 @@
       <Gauge {obs} title={tile.title} options={tile.options} />
     {/if}
   {:else if tile.type === 'stat' && obs}
-    <StatTile {obs} title={tile.title} options={tile.options} />
+    <StatTile {obs} obsKey={obsKey} title={tile.title} options={tile.options} />
   {:else if tile.type === 'chart'}
     {#if tile.options?.chart === 'windrose'}
       <WindRose {tile} {payload} />
