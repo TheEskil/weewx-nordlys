@@ -53,11 +53,20 @@ synthetic 7-day archive database):
 ```sh
 python3 -m venv .venv && .venv/bin/pip install weewx
 .venv/bin/python dev/setup.py      # station area in dev/weewx/ (idempotent; re-run to repair config)
-npm run build                       # SLE serves the built assets
-.venv/bin/weectl report run --config dev/weewx/weewx.conf
-python3 -m http.server 8123 --directory dev/weewx/public_html/nordlys
+npm run dev:weewx                   # watch + rebuild + report + live-reload on :8123
 
 .venv/bin/python -m unittest discover tests/python   # SLE unit tests
+```
+
+`npm run dev:weewx` is the single hot-reload command: it watches the skin
+(`skins/Nordlys/`) and its Python search-list (`bin/user/nordlys/`), rebuilds the
+front-end, regenerates the report, and live-reloads the browser on every change.
+Open http://localhost:8123. To run the steps once by hand instead:
+
+```sh
+npm run build
+.venv/bin/weectl report run --config dev/weewx/weewx.conf
+python3 -m http.server 8123 --directory dev/weewx/public_html/nordlys
 ```
 
 The Python <-> front-end payload shape is documented in
