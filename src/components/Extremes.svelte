@@ -73,14 +73,17 @@
     margin-left: 0.1em;
   }
 
-  /* The high pins right (even when there is no low), value and time both
+  /* Explicit alignment so a centered context (the gauge dial) can't leak in
+     and shift the time: the low's time flush-left under its icon ... */
+  .item.min {
+    text-align: left;
+  }
+
+  /* ... and the high pinned right (even with no low), its value and time both
      right-aligned so the time lands under the number's right edge. */
   .item.max {
     margin-left: auto;
     align-items: flex-end;
-  }
-
-  .item.max .time {
     text-align: right;
   }
 </style>
