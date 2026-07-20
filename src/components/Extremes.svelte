@@ -13,23 +13,23 @@
   <div class="extremes nl-num">
     {#if obs.min}
       <span class="item min">
-        <span class="v">
-          <Glyph kind="min" label="lowest" />
-          <span>{formatValue(obs.min.value, decimals)}<span class="unit"
-              >{obs.unit}</span
-            ></span>
-        </span>
+        <Glyph kind="min" label="lowest" />
+        <span class="val"
+          >{formatValue(obs.min.value, decimals)}<span class="unit"
+            >{obs.unit}</span
+          ></span
+        >
         <span class="time">{obs.min.time ?? ''}</span>
       </span>
     {/if}
     {#if obs.max}
       <span class="item max">
-        <span class="v">
-          <Glyph kind="max" label="highest" />
-          <span>{formatValue(obs.max.value, decimals)}<span class="unit"
-              >{obs.unit}</span
-            ></span>
-        </span>
+        <Glyph kind="max" label="highest" />
+        <span class="val"
+          >{formatValue(obs.max.value, decimals)}<span class="unit"
+            >{obs.unit}</span
+          ></span
+        >
         <span class="time">{obs.max.time ?? ''}</span>
       </span>
     {/if}
@@ -37,8 +37,10 @@
 {/if}
 
 <style>
-  /* Two columns: the day's low pinned left, the high pinned right, each with
-     its timestamp tucked beneath. */
+  /* Two columns: the day's low pinned left, the high pinned right. Within each,
+     a small grid keeps the glyph beside the number and drops the time directly
+     beneath the number - left-aligned under the low, right-aligned under the
+     high, so the two mirror each other. */
   .extremes {
     display: flex;
     justify-content: space-between;
@@ -48,24 +50,30 @@
   }
 
   .item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1em;
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 0.3em;
+    align-items: baseline;
     min-width: 0;
   }
 
-  /* The high sits on the right even when there is no low (max-only obs). */
-  .item.max {
-    margin-left: auto;
-    align-items: flex-end;
-    text-align: right;
+  .item :global(.glyph) {
+    grid-row: 1 / 3;
+    align-self: center;
   }
 
-  .v {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3em;
+  .val {
+    grid-column: 2;
+    grid-row: 1;
     white-space: nowrap;
+  }
+
+  .time {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 0.85em;
+    line-height: 1;
+    opacity: 0.55;
   }
 
   .unit {
@@ -73,14 +81,12 @@
     margin-left: 0.1em;
   }
 
-  .time {
-    font-size: 0.85em;
-    line-height: 1;
-    opacity: 0.55;
+  /* The high pins right even when there is no low (max-only obs). */
+  .item.max {
+    margin-left: auto;
   }
 
-  /* The low's time sits flush left, the high's flush right, so the two mirror
-     each other across the tile. */
+  .item.max .val,
   .item.max .time {
     text-align: right;
   }
