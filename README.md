@@ -52,7 +52,7 @@ synthetic 7-day archive database):
 
 ```sh
 python3 -m venv .venv && .venv/bin/pip install weewx
-.venv/bin/python dev/setup.py      # one-time station area in dev/weewx/
+.venv/bin/python dev/setup.py      # station area in dev/weewx/ (idempotent; re-run to repair config)
 npm run build                       # SLE serves the built assets
 .venv/bin/weectl report run --config dev/weewx/weewx.conf
 python3 -m http.server 8123 --directory dev/weewx/public_html/nordlys

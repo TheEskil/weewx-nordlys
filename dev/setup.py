@@ -49,6 +49,12 @@ def patch_config():
     from configobj import ConfigObj
 
     config = ConfigObj(CONFIG_PATH, encoding='utf-8', file_error=True)
+    # Pin WEEWX_ROOT to an absolute path. When absent, weewx 5.4's
+    # weecfg.read_config defaults it to the config's (relative) dirname and
+    # then re-joins that with the config dir, doubling the path segment (e.g.
+    # dev/weewx/dev/weewx) whenever --config is a relative path. An absolute
+    # value short-circuits that re-join.
+    config['WEEWX_ROOT'] = WEEWX_ROOT
     reports = config['StdReport']
     if 'SeasonsReport' in reports:
         reports['SeasonsReport']['enable'] = 'false'
