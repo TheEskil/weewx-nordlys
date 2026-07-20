@@ -47,14 +47,11 @@
   const showGenerated = $derived(isLanding && !showPicker && !showClimateYear)
 
   // A row may declare `date = <span>` to append that period's date to its
-  // title, e.g. "Yesterday's Observations · 19 Jul 2026". Resolved against the
-  // report generation time (yesterday = one day back).
-  const DATE_OFFSET_S: Record<string, number> = { yesterday: 86400, day: 0 }
+  // title, e.g. "Yesterday's Observations · 19 Jul 2026" or "This week's
+  // observations · 20 Jul - 25 Jul". The label is computed server-side (it
+  // needs the exact calendar span and station timezone) and looked up here.
   function rowDate(span: string | undefined): string | null {
-    if (span === undefined) return null
-    const offset = DATE_OFFSET_S[span]
-    if (offset === undefined) return null
-    return strftime(payload.meta.generatedAt - offset, fmts.date_year)
+    return span ? (payload.ranges?.[span] ?? null) : null
   }
 </script>
 
