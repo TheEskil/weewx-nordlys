@@ -45,16 +45,19 @@ test.describe('dashboard (today fixture)', () => {
     await expect(history.getByText(/20\d{2}/).first()).toBeVisible()
   })
 
-  test('shows the generated date by the Now header in 24-hour European format', async ({
+  test('shows the generated date in the footer and inline on the Now header', async ({
     page,
   }) => {
     // e.g. "Generated 19 Jul 2026, 16:55" - not "Jul 19, 2026, 4:55 PM".
-    // It rides on the first section's header, not the footer.
-    const generated = page.locator('.generated')
-    await expect(generated).toContainText(
-      /Generated \d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}/,
+    const footer = page.locator('footer')
+    await expect(
+      footer.getByText(/Generated \d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}/),
+    ).toBeVisible()
+    await expect(footer).not.toContainText(/\bPM\b|\bAM\b/)
+    // Echoed inline on the first section's title: "Now · 19 Jul 2026, 16:55".
+    await expect(page.locator('.h2-date')).toContainText(
+      /\d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}/,
     )
-    await expect(generated).not.toContainText(/\bPM\b|\bAM\b/)
   })
 
   test('renders charts, wind rose, almanac, and forecast', async ({

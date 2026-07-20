@@ -79,8 +79,9 @@
     opacity: 0.55;
   }
 
-  /* Line each time up under its number, past the glyph. */
-  .item.min .time {
-    padding-left: calc(10px + 0.3em);
+  /* The low's time sits flush left, the high's flush right, so the two mirror
+     each other across the tile. */
+  .item.max .time {
+    text-align: right;
   }
 </style>

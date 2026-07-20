@@ -20,7 +20,7 @@
   type Row = {
     kind: 'max' | 'avg' | 'min'
     label: string
-    text: string
+    value: string
     year?: number
   }
 
@@ -36,16 +36,16 @@
       out.push({
         kind: 'max',
         label: 'Record high',
-        text: fmt(entry, entry.high.value),
+        value: fmt(entry, entry.high.value),
         year: entry.high.year,
       })
     if (entry.avg !== undefined)
-      out.push({ kind: 'avg', label: 'Normal', text: fmt(entry, entry.avg) })
+      out.push({ kind: 'avg', label: 'Normal', value: fmt(entry, entry.avg) })
     if (entry.low)
       out.push({
         kind: 'min',
         label: 'Record low',
-        text: fmt(entry, entry.low.value),
+        value: fmt(entry, entry.low.value),
         year: entry.low.year,
       })
     return out
@@ -76,22 +76,20 @@
   <div class="groups">
     {#each groups as { key, entry } (key)}
       <div class="group">
-        <div class="obs-head">
-          <span class="obs">{entry.label}</span>
-          {#if todayText(key, entry)}
-            <span class="today nl-num" data-kind={todayKind(key, entry)}>
-              <span class="today-label">today</span>{todayText(key, entry)}
-            </span>
-          {/if}
-        </div>
-        <div class="rows">
+        <p class="obs">{entry.label}</p>
+        {#if todayText(key, entry)}
+          <p class="today nl-num" data-kind={todayKind(key, entry)}>
+            {todayText(key, entry)}<span class="tag">today</span>
+          </p>
+        {/if}
+        <div class="records">
           {#each rows(entry) as row (row.kind)}
-            <div class="row">
+            <span class="label">
               <Glyph kind={row.kind} label={row.label} />
-              <span class="row-label">{row.label}</span>
-              <span class="row-value nl-num">{row.text}</span>
-              <span class="row-year nl-num">{row.year ?? ''}</span>
-            </div>
+              <span>{row.label}</span>
+            </span>
+            <span class="value nl-num">{row.value}</span>
+            <span class="year nl-num">{row.year ?? ''}</span>
           {/each}
         </div>
       </div>
@@ -103,19 +101,9 @@
 
 <style>
   .groups {
-    display: flex;
-    flex-direction: column;
-    gap: var(--nl-space-3);
-  }
-
-  .obs-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: var(--nl-space-2);
-    margin-bottom: var(--nl-space-1);
-    border-bottom: 1px solid var(--nl-border);
-    padding-bottom: var(--nl-space-0);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: var(--nl-space-3) var(--nl-space-5);
   }
 
   .obs {
@@ -125,16 +113,17 @@
   }
 
   .today {
-    font-size: var(--nl-fs-sm);
+    font-size: var(--nl-fs-lg);
     font-weight: 600;
-    color: var(--nl-text);
-    white-space: nowrap;
+    letter-spacing: -0.01em;
+    margin: 0.1em 0 var(--nl-space-1);
   }
 
-  .today-label {
+  .today .tag {
+    font-size: var(--nl-fs-sm);
     font-weight: 400;
     color: var(--nl-text-dim);
-    margin-right: 0.4em;
+    margin-left: 0.4em;
   }
 
   .today[data-kind='hot'] {
@@ -145,37 +134,35 @@
     color: var(--nl-cold);
   }
 
-  .rows {
-    display: flex;
-    flex-direction: column;
-    gap: var(--nl-space-0);
-  }
-
-  .row {
+  /* label | value | year, grouped tight and left-packed so the eye doesn't
+     travel; values right-aligned in their column so decimals line up. */
+  .records {
     display: grid;
-    grid-template-columns: 14px minmax(0, auto) 1fr auto auto;
+    grid-template-columns: auto auto auto;
+    justify-content: start;
     align-items: baseline;
-    gap: 0 var(--nl-space-2);
+    column-gap: var(--nl-space-2);
+    row-gap: 0.35em;
+    padding-top: var(--nl-space-1);
+    border-top: 1px solid var(--nl-border);
     font-size: var(--nl-fs-sm);
   }
 
-  .row :global(.glyph) {
-    align-self: center;
-  }
-
-  .row-label {
+  .label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
     color: var(--nl-text-dim);
   }
 
-  .row-value {
+  .value {
     font-weight: 600;
     text-align: right;
   }
 
-  .row-year {
+  .year {
     color: var(--nl-text-dim);
     opacity: 0.7;
-    min-width: 2.5em;
     text-align: right;
   }
 

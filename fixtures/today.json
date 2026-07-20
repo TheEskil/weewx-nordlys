@@ -153,19 +153,6 @@
             ]
           },
           {
-            "columns": 2,
-            "tiles": [
-              {
-                "type": "celestial",
-                "title": "Sun & moon"
-              },
-              {
-                "type": "forecast",
-                "title": "Forecast"
-              }
-            ]
-          },
-          {
             "title": "Observations",
             "columns": 4,
             "tiles": [
@@ -203,6 +190,19 @@
               {
                 "type": "stat",
                 "obs": "radiation"
+              }
+            ]
+          },
+          {
+            "columns": 2,
+            "tiles": [
+              {
+                "type": "celestial",
+                "title": "Sun & moon"
+              },
+              {
+                "type": "forecast",
+                "title": "Forecast"
               }
             ]
           },
