@@ -263,6 +263,9 @@ export interface RowConfig {
   title?: string
   /** Max columns on wide screens; the grid collapses responsively. */
   columns?: number
+  /** Append a period's date to the row title, e.g. 'yesterday' ->
+   * "… · 19 Jul 2026". Resolved against the report generation time. */
+  date?: string
   tiles: TileConfig[]
 }
 

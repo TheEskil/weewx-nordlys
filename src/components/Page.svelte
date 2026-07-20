@@ -36,16 +36,30 @@
     isClimate && (payload.climatology?.years?.length ?? 0) > 1,
   )
 
-  // The report's generation time rides inline on the first row's title (e.g.
-  // "Now · 20 Jul 2026, 14:30") on the live page, unless a picker occupies
-  // that header - it makes data freshness obvious at a glance.
-  const generated = $derived(
-    strftime(payload.meta.generatedAt, formatsOf(payload).datetime),
-  )
-  const showGenerated = $derived(!showPicker && !showClimateYear)
+  // The report's generation time rides inline on the live landing page's first
+  // title (e.g. "Now · 20 Jul 2026, 14:30") - it marks the freshness of the
+  // current conditions. Other pages (yesterday, week, …) show past-period data,
+  // where a generation timestamp beside the title would only mislead, so it is
+  // left to the footer there.
+  const isLanding = $derived(payload.config.pages[0]?.id === page.id)
+  const fmts = $derived(formatsOf(payload))
+  const generated = $derived(strftime(payload.meta.generatedAt, fmts.datetime))
+  const showGenerated = $derived(isLanding && !showPicker && !showClimateYear)
+
+  // A row may declare `date = <span>` to append that period's date to its
+  // title, e.g. "Yesterday's Observations · 19 Jul 2026". Resolved against the
+  // report generation time (yesterday = one day back).
+  const DATE_OFFSET_S: Record<string, number> = { yesterday: 86400, day: 0 }
+  function rowDate(span: string | undefined): string | null {
+    if (span === undefined) return null
+    const offset = DATE_OFFSET_S[span]
+    if (offset === undefined) return null
+    return strftime(payload.meta.generatedAt - offset, fmts.date_year)
+  }
 </script>
 
 {#each page.layout as row, i (i)}
+  {@const rd = rowDate(row.date)}
   <section>
     {#if row.title || (i === 0 && (showPicker || showClimateYear))}
       <div class="head">
@@ -53,7 +67,7 @@
           <h2>
             {row.title}{#if i === 0 && showGenerated}<span class="h2-date"
                 >&nbsp;&middot; {generated}</span
-              >{/if}
+              >{:else if rd}<span class="h2-date">&nbsp;&middot; {rd}</span>{/if}
           </h2>
         {/if}
         {#if i === 0 && showPicker}<PeriodPicker {page} {payload} />{/if}

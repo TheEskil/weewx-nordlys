@@ -53,7 +53,7 @@ _OBS_DEFAULTING_TILE_TYPES = {'gauge', 'stat', 'chart', 'table', 'history'}
 _CLIMO_AGGREGATES = {'min', 'max', 'avg', 'sum'}
 
 # Keys on a row section that are settings, not tiles.
-_ROW_SETTINGS = {'title', 'columns'}
+_ROW_SETTINGS = {'title', 'columns', 'date'}
 # Tile keys that stay at the top level of the tile object; everything
 # else is passed through as tile options.
 _TILE_SETTINGS = {'type', 'obs', 'title'}
