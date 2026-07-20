@@ -11,11 +11,13 @@
     obsKey,
     title,
     options,
+    aggregate,
   }: {
     obs: Observation
     obsKey?: string
     title?: string
     options?: TileOptions
+    aggregate?: 'avg' | 'sum'
   } = $props()
 
   const decimals = $derived(obs.decimals ?? 1)
@@ -32,7 +34,9 @@
     {#if obsKey}<ObsIcon obs={obsKey} label={obs.label} />{/if}
   </div>
   <p class="value nl-num" style:color={valueColor(obs.value, options)}>
-    {formatObs(obs)}<span class="unit">{obs.unit}</span>
+    {formatObs(obs)}<span class="unit">{obs.unit}</span>{#if aggregate === 'avg'}<span
+        class="agg">avg.</span
+      >{/if}
   </p>
   {#if hasExtremes || hasTrend}
     <div class="detail nl-num">
@@ -78,6 +82,14 @@
   /* When the value is semantically colored, the unit stays dim. */
   .value .unit {
     color: var(--nl-text-dim);
+  }
+
+  /* "avg." tag on period tiles - marks the hero as the span average. */
+  .agg {
+    font-size: var(--nl-fs-sm);
+    font-weight: 400;
+    color: var(--nl-text-dim);
+    margin-left: 0.35em;
   }
 
   .detail {

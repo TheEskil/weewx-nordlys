@@ -36,13 +36,16 @@
     isClimate && (payload.climatology?.years?.length ?? 0) > 1,
   )
 
-  // The report's generation time rides inline on the first row's title (e.g.
-  // "Now · 20 Jul 2026, 14:30") on the live page, unless a picker occupies
-  // that header - it makes data freshness obvious at a glance.
+  // The report's generation time rides inline on the live landing page's first
+  // title (e.g. "Now · 20 Jul 2026, 14:30") - it marks the freshness of the
+  // current conditions. Other pages (yesterday, week, …) show past-period data,
+  // where a generation timestamp beside the title would only mislead, so it is
+  // left to the footer there.
+  const isLanding = $derived(payload.config.pages[0]?.id === page.id)
   const generated = $derived(
     strftime(payload.meta.generatedAt, formatsOf(payload).datetime),
   )
-  const showGenerated = $derived(!showPicker && !showClimateYear)
+  const showGenerated = $derived(isLanding && !showPicker && !showClimateYear)
 </script>
 
 {#each page.layout as row, i (i)}

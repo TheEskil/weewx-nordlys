@@ -35,6 +35,16 @@
         ? payload.current[obsKey]
         : undefined,
   )
+  // Period stat tiles show the span average (or the total for sum obs like
+  // rain) as the hero - label it so it reads as a period figure, not a
+  // current reading. Current-conditions tiles (no span) carry no label.
+  const aggregate = $derived(
+    statSpan && periodEntry
+      ? periodEntry.sum !== undefined
+        ? 'sum'
+        : 'avg'
+      : undefined,
+  )
   const isChart = $derived(tile.type === 'chart')
   // Absent sensors (and period stat tiles with no stats for the span) are
   // hidden entirely rather than showing empty tiles.
@@ -52,7 +62,13 @@
       <Gauge {obs} title={tile.title} options={tile.options} />
     {/if}
   {:else if tile.type === 'stat' && obs}
-    <StatTile {obs} obsKey={obsKey} title={tile.title} options={tile.options} />
+    <StatTile
+      {obs}
+      obsKey={obsKey}
+      title={tile.title}
+      options={tile.options}
+      {aggregate}
+    />
   {:else if tile.type === 'chart'}
     {#if tile.options?.chart === 'windrose'}
       <WindRose {tile} {payload} />
