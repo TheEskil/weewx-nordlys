@@ -13,23 +13,23 @@
   <div class="extremes nl-num">
     {#if obs.min}
       <span class="item min">
-        <Glyph kind="min" label="lowest" />
-        <span class="val"
-          >{formatValue(obs.min.value, decimals)}<span class="unit"
-            >{obs.unit}</span
-          ></span
-        >
+        <span class="v">
+          <Glyph kind="min" label="lowest" />
+          <span>{formatValue(obs.min.value, decimals)}<span class="unit"
+              >{obs.unit}</span
+            ></span>
+        </span>
         <span class="time">{obs.min.time ?? ''}</span>
       </span>
     {/if}
     {#if obs.max}
       <span class="item max">
-        <Glyph kind="max" label="highest" />
-        <span class="val"
-          >{formatValue(obs.max.value, decimals)}<span class="unit"
-            >{obs.unit}</span
-          ></span
-        >
+        <span class="v">
+          <Glyph kind="max" label="highest" />
+          <span>{formatValue(obs.max.value, decimals)}<span class="unit"
+              >{obs.unit}</span
+            ></span>
+        </span>
         <span class="time">{obs.max.time ?? ''}</span>
       </span>
     {/if}
@@ -37,10 +37,9 @@
 {/if}
 
 <style>
-  /* Two columns: the day's low pinned left, the high pinned right. Within each,
-     a small grid keeps the glyph beside the number and drops the time directly
-     beneath the number - left-aligned under the low, right-aligned under the
-     high, so the two mirror each other. */
+  /* The day's low pinned left, the high pinned right. For the low the icon
+     leads and the time sits flush-left beneath it; for the high the value is
+     right-aligned and the time sits flush-right beneath it - a mirrored pair. */
   .extremes {
     display: flex;
     justify-content: space-between;
@@ -50,27 +49,20 @@
   }
 
   .item {
-    display: grid;
-    grid-template-columns: auto auto;
-    column-gap: 0.3em;
-    align-items: baseline;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1em;
     min-width: 0;
   }
 
-  .item :global(.glyph) {
-    grid-row: 1 / 3;
-    align-self: center;
-  }
-
-  .val {
-    grid-column: 2;
-    grid-row: 1;
+  .v {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
     white-space: nowrap;
   }
 
   .time {
-    grid-column: 2;
-    grid-row: 2;
     font-size: 0.85em;
     line-height: 1;
     opacity: 0.55;
@@ -81,12 +73,13 @@
     margin-left: 0.1em;
   }
 
-  /* The high pins right even when there is no low (max-only obs). */
+  /* The high pins right (even when there is no low), value and time both
+     right-aligned so the time lands under the number's right edge. */
   .item.max {
     margin-left: auto;
+    align-items: flex-end;
   }
 
-  .item.max .val,
   .item.max .time {
     text-align: right;
   }
