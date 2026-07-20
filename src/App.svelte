@@ -64,6 +64,32 @@
   const fmts = $derived(formatsOf(data))
   const generated = $derived(strftime(data.meta.generatedAt, fmts.datetime))
 
+  // The "Periods & reports" (Archive) page rides in the footer beside the
+  // generated date, not in the primary nav. Identify it by its reports tile
+  // so it isn't tied to a hard-coded page id.
+  const archivePage = $derived(
+    data.config.pages.find((p) =>
+      p.layout?.some((row) => row.tiles?.some((t) => t.type === 'reports')),
+    ),
+  )
+  const navPages = $derived(
+    data.config.pages.filter((p) => p.id !== archivePage?.id),
+  )
+
+  function onFooterNav(event: MouseEvent, id: string) {
+    // Let modified clicks (new tab, etc.) fall through to the real href.
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return
+    event.preventDefault()
+    navigate(id)
+  }
+
   $effect(() => {
     const live = data.config.live
     if (!live?.broker) return
@@ -93,7 +119,7 @@
 <div class="app">
   <Header
     station={data.meta.station}
-    pages={data.config.pages}
+    pages={navPages}
     active={activePageId}
     live={liveStatus}
     period={data.period}
@@ -114,7 +140,15 @@
   </main>
 
   <footer>
-    <span>Generated {generated}</span>
+    <span>
+      Generated {generated}{#if archivePage}&nbsp;&middot;
+        <a
+          href={hrefFor(archivePage.id)}
+          class:active={archivePage.id === activePageId}
+          onclick={(event) => onFooterNav(event, archivePage.id)}
+          >{archivePage.title}</a
+        >{/if}
+    </span>
     <span>
       Powered by <a href="https://weewx.com">weewx</a> ·
       <a
@@ -170,5 +204,10 @@
   footer a {
     color: var(--nl-text-dim);
     text-decoration: underline;
+  }
+
+  footer a:hover,
+  footer a.active {
+    color: var(--nl-text);
   }
 </style>
