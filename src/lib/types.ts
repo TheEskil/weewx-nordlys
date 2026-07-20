@@ -18,6 +18,9 @@ export interface NordlysPayload {
   windrose?: Record<string, WindRoseData>
   /** span ('week' | 'month' | 'year' | 'alltime') -> obs -> aggregates */
   stats?: Record<string, Record<string, StatsEntry>>
+  /** span -> formatted date label for a row's `date` option, e.g.
+   * yesterday -> "19 Jul 2026", week -> "20 Jul - 25 Jul" */
+  ranges?: Record<string, string>
   climatology?: Climatology | null
   almanac?: AlmanacData | null
   forecast?: ForecastData | null

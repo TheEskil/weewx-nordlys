@@ -865,6 +865,29 @@ class NordlysSearchList(SearchList):
         )
         windrose = self._windrose_data(rose_needs, db_manager, span_timespans)
         stats = self._stats_data(stats_needs, db_manager, stats_spans)
+        # Formatted date labels per stats span, for row titles that opt in via
+        # `date = <span>`. Calendar-day spans show the single date; longer
+        # calendar periods show "start - now". Station-local time.
+        ranges = {}
+        for span, tspan in stats_spans.items():
+            if span in _CALENDAR_DAY_SPANS:
+                ranges[span] = time.strftime(
+                    self._formats['date_year'], time.localtime(tspan.start)
+                )
+            elif span in ('week', 'month', 'year'):
+                end = min(tspan.stop, last_ts)
+                start_str = time.strftime(
+                    self._formats['date'], time.localtime(tspan.start)
+                )
+                end_str = time.strftime(
+                    self._formats['date'], time.localtime(end)
+                )
+                # Collapse a period that has only started today to one date.
+                ranges[span] = (
+                    start_str
+                    if start_str == end_str
+                    else '%s - %s' % (start_str, end_str)
+                )
         # The archives index feeds reports tiles and period pickers - the
         # latter on both live pages (page picker) and archive pages (whose
         # own picker is driven by the period they represent).
@@ -899,6 +922,7 @@ class NordlysSearchList(SearchList):
             'series': series,
             'windrose': windrose,
             'stats': stats,
+            'ranges': ranges,
             'climatology': climatology,
             'almanac': almanac,
             'forecast': forecast,

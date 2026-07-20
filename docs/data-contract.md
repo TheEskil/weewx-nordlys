@@ -133,6 +133,13 @@ and the front-end fetches it.
     }
   },
 
+  "ranges": {                // formatted date label per stats span, for row
+    "yesterday": "19 Jul 2026",   // titles that opt in via `date = <span>`
+    "week": "20 Jul - 25 Jul",    // calendar day -> single date; longer
+    "month": "01 Jul - 25 Jul",   // calendar periods -> "start - now"
+    "year": "01 Jan - 25 Jul"     // (station-local; collapses to one date
+  },                              //  when the period only started today)
+
   "climatology": {           // present when a climatology/calendar tile exists
     "days": [                // from [Nordlys][[climatological_days]]
       { "id": "frost_days", "label": "Frost days", "count": 12,
