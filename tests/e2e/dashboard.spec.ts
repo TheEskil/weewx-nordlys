@@ -38,23 +38,26 @@ test.describe('dashboard (today fixture)', () => {
     await expect(
       page.getByRole('heading', { name: 'On this day in history' }),
     ).toBeVisible()
-    // The record cards live in a tile of their own (section title is an h2).
-    const history = page.locator('.tile', { hasText: 'Highest' }).first()
+    // The records live in a tile of their own (section title is an h2).
+    const history = page.locator('.tile', { hasText: 'Record high' }).first()
     await expect(history).toContainText('27.6°C')
     // Records are tagged with the year they occurred.
     await expect(history.getByText(/20\d{2}/).first()).toBeVisible()
   })
 
-  test('formats the footer as 24-hour European date/time', async ({
+  test('shows the generated date in the footer and inline on the Now header', async ({
     page,
   }) => {
     // e.g. "Generated 19 Jul 2026, 16:55" - not "Jul 19, 2026, 4:55 PM".
+    const footer = page.locator('footer')
     await expect(
-      page
-        .locator('footer')
-        .getByText(/Generated \d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}/),
+      footer.getByText(/Generated \d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}/),
     ).toBeVisible()
-    await expect(page.locator('footer')).not.toContainText(/\bPM\b|\bAM\b/)
+    await expect(footer).not.toContainText(/\bPM\b|\bAM\b/)
+    // Echoed inline on the first section's title: "Now · 19 Jul 2026, 16:55".
+    await expect(page.locator('.h2-date')).toContainText(
+      /\d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2}/,
+    )
   })
 
   test('renders charts, wind rose, almanac, and forecast', async ({

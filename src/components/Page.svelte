@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { NordlysPayload, PageConfig } from '../lib/types'
+  import { formatsOf, strftime } from '../lib/strftime'
   import Tile from './Tile.svelte'
   import PeriodPicker from './PeriodPicker.svelte'
   import ClimateYearPicker from './ClimateYearPicker.svelte'
@@ -34,13 +35,27 @@
   const showClimateYear = $derived(
     isClimate && (payload.climatology?.years?.length ?? 0) > 1,
   )
+
+  // The report's generation time rides inline on the first row's title (e.g.
+  // "Now · 20 Jul 2026, 14:30") on the live page, unless a picker occupies
+  // that header - it makes data freshness obvious at a glance.
+  const generated = $derived(
+    strftime(payload.meta.generatedAt, formatsOf(payload).datetime),
+  )
+  const showGenerated = $derived(!showPicker && !showClimateYear)
 </script>
 
 {#each page.layout as row, i (i)}
   <section>
     {#if row.title || (i === 0 && (showPicker || showClimateYear))}
       <div class="head">
-        {#if row.title}<h2>{row.title}</h2>{/if}
+        {#if row.title}
+          <h2>
+            {row.title}{#if i === 0 && showGenerated}<span class="h2-date"
+                >&nbsp;&middot; {generated}</span
+              >{/if}
+          </h2>
+        {/if}
         {#if i === 0 && showPicker}<PeriodPicker {page} {payload} />{/if}
         {#if i === 0 && showClimateYear}<ClimateYearPicker {payload} />{/if}
       </div>
@@ -78,6 +93,15 @@
   .head :global(.picker),
   .head :global(.wrap) {
     margin-left: auto;
+  }
+
+  /* The generated date sits inline after the section title (e.g. "Now"),
+     but reads as plain text, not part of the uppercase heading. */
+  .h2-date {
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--nl-text-dim);
   }
 
   .grid {
