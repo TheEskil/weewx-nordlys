@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { NordlysPayload, PageConfig } from '../lib/types'
+  import { formatsOf, strftime } from '../lib/strftime'
   import Tile from './Tile.svelte'
   import PeriodPicker from './PeriodPicker.svelte'
   import ClimateYearPicker from './ClimateYearPicker.svelte'
@@ -34,15 +35,26 @@
   const showClimateYear = $derived(
     isClimate && (payload.climatology?.years?.length ?? 0) > 1,
   )
+
+  // The report's generation time rides on the first row's header (next to
+  // "Now" on the live page), unless a picker already occupies that slot -
+  // it makes data freshness obvious at a glance.
+  const generated = $derived(
+    strftime(payload.meta.generatedAt, formatsOf(payload).datetime),
+  )
+  const showGenerated = $derived(!showPicker && !showClimateYear)
 </script>
 
 {#each page.layout as row, i (i)}
   <section>
-    {#if row.title || (i === 0 && (showPicker || showClimateYear))}
+    {#if row.title || (i === 0 && (showPicker || showClimateYear || showGenerated))}
       <div class="head">
         {#if row.title}<h2>{row.title}</h2>{/if}
         {#if i === 0 && showPicker}<PeriodPicker {page} {payload} />{/if}
         {#if i === 0 && showClimateYear}<ClimateYearPicker {payload} />{/if}
+        {#if i === 0 && showGenerated}
+          <span class="generated nl-num">Generated {generated}</span>
+        {/if}
       </div>
     {/if}
     <div class="grid" style:--row-cols={row.columns ?? 4}>
@@ -78,6 +90,15 @@
   .head :global(.picker),
   .head :global(.wrap) {
     margin-left: auto;
+  }
+
+  .generated {
+    margin-left: auto;
+    font-size: var(--nl-fs-sm);
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--nl-text-dim);
   }
 
   .grid {

@@ -16,6 +16,7 @@
     {#if obs.min}
       <span class="item">
         <Glyph kind="min" label="lowest" />
+        <span class="lbl">Low</span>
         <span>{formatValue(obs.min.value, decimals)}<span class="unit"
             >{obs.unit}</span
           ></span>
@@ -25,6 +26,7 @@
     {#if obs.avg !== undefined}
       <span class="item">
         <Glyph kind="avg" label="average" />
+        <span class="lbl">Avg</span>
         <span>{formatValue(obs.avg, decimals)}<span class="unit"
             >{obs.unit}</span
           ></span>
@@ -33,6 +35,7 @@
     {#if obs.max}
       <span class="item">
         <Glyph kind="max" label="highest" />
+        <span class="lbl">High</span>
         <span>{formatValue(obs.max.value, decimals)}<span class="unit"
             >{obs.unit}</span
           ></span>
@@ -56,6 +59,12 @@
     align-items: center;
     gap: 0.2em;
     white-space: nowrap;
+  }
+
+  /* Word labels (Low / Avg / High) that name each extreme, al199-style. */
+  .lbl {
+    opacity: 0.65;
+    font-variant-numeric: normal;
   }
 
   .unit {

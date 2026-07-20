@@ -62,7 +62,6 @@
     return () => window.removeEventListener('popstate', onPop)
   })
   const fmts = $derived(formatsOf(data))
-  const generated = $derived(strftime(data.meta.generatedAt, fmts.datetime))
 
   $effect(() => {
     const live = data.config.live
@@ -114,7 +113,6 @@
   </main>
 
   <footer>
-    <span>Generated {generated}</span>
     <span>
       Powered by <a href="https://weewx.com">weewx</a> ·
       <a
