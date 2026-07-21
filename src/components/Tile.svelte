@@ -92,7 +92,7 @@
   {:else if tile.type === 'forecast'}
     <Forecast {tile} {payload} />
   {:else if tile.type === 'reports'}
-    <Reports {payload} />
+    <Reports {tile} {payload} />
   {:else if tile.type === 'text'}
     <p class="text">{tile.title ?? ''}</p>
   {:else}
