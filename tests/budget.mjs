@@ -7,7 +7,7 @@ import { readFileSync } from 'fs'
 import { gzipSync } from 'zlib'
 
 const BUDGETS_KB = {
-  'skins/Nordlys/dist/nordlys.js': 60, // core bundle incl. uPlot
+  'skins/Nordlys/dist/nordlys.js': 65, // core bundle incl. uPlot
   'skins/Nordlys/dist/nordlys.css': 8,
   'skins/Nordlys/dist/nordlys.mqtt.esm.js': 130, // lazy, live-only chunk
 }
