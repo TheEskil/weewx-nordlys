@@ -99,22 +99,32 @@
   {#if cards.length > 0}
     <div class="cards">
       {#each cards as card (card.key)}
-        <div class="card">
-          <p class="card-label">{card.label}</p>
-          {#each card.lines as line, i (i)}
-            <div class="line" class:multi={card.lines.length > 1}>
-              {#if line.spanLabel}<span class="line-span">{line.spanLabel}</span
-                >{/if}
-              <span class="card-value nl-num">
-                {formatValue(line.value, card.decimals)}<span class="card-unit"
+        {#if card.lines.length > 1}
+          <div class="card compare">
+            <p class="card-label">{card.label}</p>
+            {#each card.lines as line, i (i)}
+              <span class="c-span">{line.spanLabel}</span>
+              <span class="c-value nl-num"
+                >{formatValue(line.value, card.decimals)}<span class="card-unit"
                   >{card.unit}</span
-                >
-              </span>
-              {#if line.time}<span class="card-time nl-num">{line.time}</span
-                >{/if}
-            </div>
-          {/each}
-        </div>
+                ></span
+              >
+              <span class="c-time nl-num">{line.time ?? ''}</span>
+            {/each}
+          </div>
+        {:else}
+          <div class="card">
+            <p class="card-label">{card.label}</p>
+            <p class="card-value nl-num">
+              {formatValue(card.lines[0].value, card.decimals)}<span
+                class="card-unit">{card.unit}</span
+              >
+            </p>
+            {#if card.lines[0].time}<p class="card-time nl-num">
+                {card.lines[0].time}
+              </p>{/if}
+          </div>
+        {/if}
       {/each}
     </div>
   {:else}
@@ -177,8 +187,8 @@
 <style>
   .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: var(--nl-space-2);
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: var(--nl-space-2) var(--nl-space-4);
   }
 
   .card-label {
@@ -187,37 +197,16 @@
     margin-bottom: var(--nl-space-0);
   }
 
-  /* Single-span cards stack value over time; comparative (multi-span) cards
-     lay each span out as a labelled row: span | value | date. */
-  .line.multi {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: baseline;
-    gap: 0 var(--nl-space-1);
-  }
-
-  /* Single-span: value over its date, like the original record cards. */
-  .line:not(.multi) .card-value,
-  .line:not(.multi) .card-time {
-    display: block;
-  }
-
-  .line + .line {
-    margin-top: var(--nl-space-0);
-  }
-
-  .line-span {
-    font-size: var(--nl-fs-sm);
-    color: var(--nl-text-dim);
-  }
-
   .card-value {
     font-size: var(--nl-fs-lg);
     font-weight: 600;
+    margin-top: var(--nl-space-0);
   }
 
-  .line.multi .card-value {
-    text-align: right;
+  .card-time {
+    font-size: var(--nl-fs-sm);
+    color: var(--nl-text-dim);
+    margin-top: var(--nl-space-0);
   }
 
   .card-unit {
@@ -227,13 +216,35 @@
     margin-left: var(--nl-space-0);
   }
 
-  .card-time {
+  /* Comparative cards: one grid per card so every span row aligns -
+     span label | value (right, so digits line up) | date. */
+  .card.compare {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: baseline;
+    column-gap: var(--nl-space-2);
+    row-gap: var(--nl-space-0);
+  }
+
+  .card.compare .card-label {
+    grid-column: 1 / -1;
+  }
+
+  .c-span {
     font-size: var(--nl-fs-sm);
     color: var(--nl-text-dim);
   }
 
-  .line.multi .card-time {
+  .c-value {
+    font-size: var(--nl-fs-lg);
+    font-weight: 600;
     text-align: right;
+    white-space: nowrap;
+  }
+
+  .c-time {
+    font-size: var(--nl-fs-sm);
+    color: var(--nl-text-dim);
     white-space: nowrap;
   }
 
