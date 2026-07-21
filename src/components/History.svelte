@@ -106,6 +106,15 @@
     gap: var(--nl-space-3) var(--nl-space-5);
   }
 
+  /* Stacked in one column (mobile), the groups need a divider so one obs's
+     records don't run straight into the next obs heading. */
+  @media (max-width: 560px) {
+    .group + .group {
+      border-top: 1px solid var(--nl-border);
+      padding-top: var(--nl-space-3);
+    }
+  }
+
   .obs {
     font-size: var(--nl-fs-sm);
     font-weight: 500;
