@@ -34,6 +34,15 @@
     return `${sign}${m} min ${s.toString().padStart(2, '0')} s`
   }
 
+  // Day-length change worded for the seasons section (getting longer/shorter).
+  function trendLabel(seconds: number): string {
+    const abs = Math.abs(seconds)
+    const m = Math.floor(abs / 60)
+    const s = abs % 60
+    const dir = seconds < 0 ? 'shorter' : 'longer'
+    return `${m} min ${s.toString().padStart(2, '0')} s ${dir}`
+  }
+
   const twilights = $derived(
     almanac?.twilight
       ? ([
@@ -59,31 +68,46 @@
   {:else if section === 'sunpath'}
     <SunPath {almanac} />
   {:else if section === 'sun'}
-    <dl class="rows nl-num">
-      <div><dt>Sunrise</dt><dd>{almanac.sunrise ?? '-'}</dd></div>
-      <div><dt>Sunset</dt><dd>{almanac.sunset ?? '-'}</dd></div>
-      {#if almanac.transit}<div><dt>Solar noon</dt><dd>{almanac.transit}</dd></div>{/if}
-      {#if almanac.day_length}<div><dt>Day length</dt><dd>{almanac.day_length}</dd></div>{/if}
-      {#if almanac.day_length_delta != null}
-        <div>
-          <dt>vs yesterday</dt>
-          <dd class:neg={almanac.day_length_delta < 0}>
-            {deltaLabel(almanac.day_length_delta)}
-          </dd>
-        </div>
-      {/if}
-      {#each twilights as [name, band] (name)}
-        {#if band && (band[0] || band[1])}
+    <div class="body">
+      <svg class="sun-icon" viewBox="-18 -18 36 36" aria-hidden="true">
+        <circle class="sun-disc" r="7" />
+        <g class="rays">
+          <line x1="0" y1="-10.5" x2="0" y2="-15.5" />
+          <line x1="7.4" y1="-7.4" x2="11" y2="-11" />
+          <line x1="10.5" y1="0" x2="15.5" y2="0" />
+          <line x1="7.4" y1="7.4" x2="11" y2="11" />
+          <line x1="0" y1="10.5" x2="0" y2="15.5" />
+          <line x1="-7.4" y1="7.4" x2="-11" y2="11" />
+          <line x1="-10.5" y1="0" x2="-15.5" y2="0" />
+          <line x1="-7.4" y1="-7.4" x2="-11" y2="-11" />
+        </g>
+      </svg>
+      <dl class="rows nl-num">
+        <div><dt>Sunrise</dt><dd>{almanac.sunrise ?? '-'}</dd></div>
+        <div><dt>Sunset</dt><dd>{almanac.sunset ?? '-'}</dd></div>
+        {#if almanac.transit}<div><dt>Solar noon</dt><dd>{almanac.transit}</dd></div>{/if}
+        {#if almanac.day_length}<div><dt>Day length</dt><dd>{almanac.day_length}</dd></div>{/if}
+        {#if almanac.day_length_delta != null}
           <div>
-            <dt>{name} twilight</dt>
-            <dd>{band[0] ?? '-'} · {band[1] ?? '-'}</dd>
+            <dt>vs yesterday</dt>
+            <dd class:neg={almanac.day_length_delta < 0}>
+              {deltaLabel(almanac.day_length_delta)}
+            </dd>
           </div>
         {/if}
-      {/each}
-    </dl>
+        {#each twilights as [name, band] (name)}
+          {#if band && (band[0] || band[1])}
+            <div>
+              <dt>{name} twilight</dt>
+              <dd>{band[0] ?? '-'} · {band[1] ?? '-'}</dd>
+            </div>
+          {/if}
+        {/each}
+      </dl>
+    </div>
   {:else if section === 'moon'}
-    <div class="moon">
-      <svg viewBox="-18 -18 36 36" aria-hidden="true">
+    <div class="body">
+      <svg class="moon-icon" viewBox="-18 -18 36 36" aria-hidden="true">
         <circle class="disc" r={R} />
         {#if moon}<path class="lit" d={moon.path} />{/if}
       </svg>
@@ -97,6 +121,17 @@
     </div>
   {:else if section === 'seasons'}
     <dl class="rows nl-num">
+      {#if almanac.day_length}
+        <div><dt>Day length</dt><dd>{almanac.day_length}</dd></div>
+      {/if}
+      {#if almanac.day_length_delta != null}
+        <div>
+          <dt>Trend</dt>
+          <dd class:neg={almanac.day_length_delta < 0}>
+            {trendLabel(almanac.day_length_delta)}
+          </dd>
+        </div>
+      {/if}
       {#if eq}
         <div>
           <dt>Next equinox</dt>
@@ -282,16 +317,22 @@
     margin-top: var(--nl-space-0);
   }
 
-  .moon {
+  /* Sun and Moon sections share the same shape: icon left, rows right. */
+  .body {
     display: flex;
     align-items: center;
     gap: var(--nl-space-3);
   }
 
-  .moon svg {
+  .body > svg {
     width: 52px;
     height: 52px;
     flex-shrink: 0;
+  }
+
+  .body .rows {
+    flex: 1;
+    min-width: 0;
   }
 
   .disc {
@@ -302,6 +343,29 @@
 
   .lit {
     fill: var(--nl-text-dim);
+  }
+
+  .sun-disc {
+    fill: var(--nl-accent);
+  }
+
+  .rays line {
+    stroke: var(--nl-accent);
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  /* The bare combo card (Today) keeps its own two-up layout. */
+  .moon {
+    display: flex;
+    align-items: center;
+    gap: var(--nl-space-3);
+  }
+
+  .moon svg {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
   }
 
   .hint {
