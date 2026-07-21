@@ -147,6 +147,11 @@ and the front-end fetches it.
         // an uncovered month renders blank rather than a misleading 0
         "months": [3,4,2,0,0,0,0,0,0,0,1,2],
         "covered": [true,true,true,true,true,true,true,true,true,true,true,true],
+        // previous year's tally + coverage, for the year-over-year delta shown
+        // per cell; the ongoing year's in-progress month is left uncovered here
+        // so its partial count isn't compared to last year's full month
+        "prevMonths": [2,5,1,0,0,0,0,0,0,0,0,1],
+        "prevCovered": [true,true,true,true,true,true,true,true,true,true,true,true],
         "obs": "outTemp", "aggregate": "min", "op": "<", "value": 0,
         "unit": "°C" }
     ],

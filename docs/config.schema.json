@@ -154,6 +154,11 @@
           "enum": ["24h", "day", "yesterday", "week", "month", "year", "alltime", "archive"]
         },
         "table": { "enum": ["stats", "records"] },
+        "spans": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "stats-cards table: compare several spans as one card per metric, e.g. [year, alltime]."
+        },
         "aggregate": { "enum": ["avg", "min", "max", "sum"] },
         "stats": {
           "type": "array",

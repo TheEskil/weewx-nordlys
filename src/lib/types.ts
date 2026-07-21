@@ -126,6 +126,9 @@ export interface ClimoDay {
   months?: number[]
   /** which months had any archive data; uncovered months render blank */
   covered?: boolean[]
+  /** previous year's per-month tally + coverage, for year-over-year deltas */
+  prevMonths?: number[]
+  prevCovered?: boolean[]
   obs: string
   aggregate: string
   op: string
@@ -308,6 +311,9 @@ export interface TileOptions {
   /** chart: overlay this obs as a line on a second (right) axis, e.g. a
    * rain-rate line over rain bars */
   overlay?: string
+  /** stats-cards table: compare several spans as one card per metric,
+   * e.g. spans = year, alltime */
+  spans?: string[]
   /** chart timespan: 24h | day | yesterday | week | month | year
    * (default day = calendar today; 24h = trailing window).
    * On a stat tile, a span (yesterday/week/month/year/alltime/archive)

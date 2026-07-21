@@ -291,10 +291,13 @@ Python package; without it those panels show the basic data plus a hint.
 ```ini
     style = cards        # render the extremes as record cards (label,
                          # value, date) - e.g. all-time station records
+    spans = year, alltime   # compare several spans in one card per metric
 ```
 
 `style = cards` on a `stats` table shows each obs's highest/lowest (rain:
-wettest day) as record cards instead of a min/avg/max table.
+wettest day) as record cards instead of a min/avg/max table. Add `spans`
+(instead of a single `span`) to compare periods - each metric becomes one
+card with a labelled row per span (e.g. "This year" over "All-time").
 
 **reports** - `stats = outTemp, rain` adds at-a-glance period stats
 (average/total per obs) to each month/year in the period browser.

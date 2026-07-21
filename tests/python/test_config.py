@@ -587,6 +587,32 @@ class TestCollectStatsNeeds(unittest.TestCase):
             _collect_stats_needs(pages), {'year': ['outTemp', 'rain']}
         )
 
+    def test_stats_cards_multiple_spans(self):
+        # A comparative records-cards tile collects its obs for every span.
+        pages = [
+            {
+                'layout': [
+                    {
+                        'tiles': [
+                            {
+                                'type': 'table',
+                                'obs': ['outTemp', 'rain'],
+                                'options': {
+                                    'table': 'stats',
+                                    'style': 'cards',
+                                    'spans': ['year', 'alltime'],
+                                },
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+        self.assertEqual(
+            _collect_stats_needs(pages),
+            {'year': ['outTemp', 'rain'], 'alltime': ['outTemp', 'rain']},
+        )
+
     def test_period_stat_tiles_excluded_from_current(self):
         pages = [
             {
