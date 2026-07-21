@@ -26,6 +26,33 @@
     const agg = AGGREGATE_LABEL[day.aggregate] ?? day.aggregate
     return `${agg} ${day.op} ${day.value}${day.unit ? ` ${day.unit}` : ''}`
   }
+
+  type Day = (typeof days)[number]
+
+  // Year-over-year change for month i, when both this year and last year had
+  // data for that month. null = no comparison available.
+  function monthDelta(day: Day, i: number): number | null {
+    if (!(day.covered?.[i] ?? true) || !day.prevCovered?.[i]) return null
+    return (day.months?.[i] ?? 0) - (day.prevMonths?.[i] ?? 0)
+  }
+
+  // Year total change over the same period (months both years cover).
+  function yearDelta(day: Day): number | null {
+    if (!day.prevMonths || !day.prevCovered) return null
+    let now = 0
+    let prev = 0
+    let any = false
+    for (let i = 0; i < 12; i++) {
+      if ((day.covered?.[i] ?? true) && day.prevCovered[i]) {
+        now += day.months?.[i] ?? 0
+        prev += day.prevMonths[i] ?? 0
+        any = true
+      }
+    }
+    return any ? now - prev : null
+  }
+
+  const fmtDelta = (d: number) => (d > 0 ? `+${d}` : `${d}`)
 </script>
 
 {#if days.length > 0}
@@ -40,6 +67,7 @@
       </thead>
       <tbody>
         {#each days as day (day.id)}
+          {@const yd = yearDelta(day)}
           <tr>
             <th scope="row">
               <span class="name">{day.label}</span>
@@ -48,11 +76,22 @@
             {#each MONTHS as _m, i (i)}
               {@const covered = day.covered?.[i] ?? true}
               {@const n = day.months?.[i] ?? 0}
+              {@const d = monthDelta(day, i)}
               <td class="nl-num" class:zero={covered && n === 0}>
-                {#if covered}{n}{:else}<span class="blank">·</span>{/if}
+                {#if covered}{n}{#if d}<span
+                      class="delta"
+                      class:up={d > 0}
+                      class:down={d < 0}>({fmtDelta(d)})</span
+                    >{/if}{:else}<span class="blank">·</span>{/if}
               </td>
             {/each}
-            <td class="nl-num total">{day.count}</td>
+            <td class="nl-num total">
+              {day.count}{#if yd}<span
+                  class="delta"
+                  class:up={yd > 0}
+                  class:down={yd < 0}>({fmtDelta(yd)})</span
+                >{/if}
+            </td>
           </tr>
         {/each}
       </tbody>
@@ -121,6 +160,21 @@
   .blank {
     color: var(--nl-text-dim);
     opacity: 0.4;
+  }
+
+  /* Year-over-year change vs the same period last year: green up, red down. */
+  .delta {
+    font-size: 0.625rem;
+    font-weight: 500;
+    margin-left: 0.25em;
+  }
+
+  .delta.up {
+    color: var(--nl-ok);
+  }
+
+  .delta.down {
+    color: var(--nl-alert);
   }
 
   .total {

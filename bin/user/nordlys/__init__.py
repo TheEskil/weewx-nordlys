@@ -350,6 +350,13 @@ def _obs_list(tile):
     return obs if isinstance(obs, list) else [obs]
 
 
+def _as_list(value):
+    """A ConfigObj scalar or comma-list normalized to a list (empty if None)."""
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
+
+
 def _all_obs(pages):
     """Every observation any tile references, in config order."""
     keys = []
@@ -452,17 +459,20 @@ def _collect_stats_needs(pages):
         options = tile.get('options', {})
         tile_type = tile.get('type')
         if tile_type == 'table' and options.get('table', 'stats') == 'stats':
-            span = options.get('span', 'month')
+            # A stats-cards tile may compare several spans (spans = year,
+            # alltime); otherwise it has a single span.
+            spans = _as_list(options.get('spans')) or [options.get('span', 'month')]
         elif _is_period_stat(tile):
-            span = options['span']
+            spans = [options['span']]
         else:
             continue
-        if span not in _STATS_SPANS and span not in ('alltime', 'archive'):
-            continue
-        span_obs = needs.setdefault(span, [])
-        for obs in _obs_list(tile):
-            if obs not in span_obs:
-                span_obs.append(obs)
+        for span in spans:
+            if span not in _STATS_SPANS and span not in ('alltime', 'archive'):
+                continue
+            span_obs = needs.setdefault(span, [])
+            for obs in _obs_list(tile):
+                if obs not in span_obs:
+                    span_obs.append(obs)
     return needs
 
 
@@ -1472,6 +1482,16 @@ class NordlysSearchList(SearchList):
             nordlys_dict, 'sections', []
         ):
             section = nordlys_dict['climatological_days']
+            # Previous year, for the year-over-year deltas per month.
+            prev_span = archiveYearSpan(year_span.start - 2 * 86400)
+            # The in-progress month of an ongoing year is only partial, so its
+            # delta against last year's full month would mislead - drop it.
+            last_ts = db_manager.lastGoodStamp()
+            partial_month = (
+                time.localtime(last_ts).tm_mon - 1
+                if last_ts and last_ts < year_span.stop
+                else None
+            )
             days = []
             for def_id in section.sections:
                 definition = _section_items(section[def_id])
@@ -1483,6 +1503,14 @@ class NordlysSearchList(SearchList):
                     def_id, definition, year_span, db_manager
                 )
                 if entry:
+                    prev = self._climo_day_count(
+                        def_id, definition, prev_span, db_manager
+                    )
+                    if prev:
+                        if partial_month is not None:
+                            prev['covered'][partial_month] = False
+                        entry['prevMonths'] = prev['months']
+                        entry['prevCovered'] = prev['covered']
                     days.append(entry)
             if days:
                 climatology['days'] = days
