@@ -13,6 +13,10 @@
   const GAP = 3
   const TOP = 16 // month labels
   const LEFT = 26 // weekday labels
+  // The heatmap scales to fill the tile width, but cells never grow past this
+  // (viewBox units) - so a partial year / sparse data centers at a sane size
+  // instead of ballooning into giant squares.
+  const CELL_MAX = 20
 
   const cells = $derived.by(() => {
     if (!calendar) return []
@@ -69,6 +73,9 @@
 
   const width = $derived(LEFT + weeks * (CELL + GAP))
   const height = TOP + 7 * (CELL + GAP)
+  // Natural pixel width (mobile floor + scroll) and the capped width the block
+  // is allowed to grow to on desktop (cells up to CELL_MAX).
+  const maxWidth = $derived(Math.round(width * (CELL_MAX / CELL)))
   const weekdayLabels = [
     { row: 0, text: 'Mon' },
     { row: 2, text: 'Wed' },
@@ -83,10 +90,12 @@
 </script>
 
 {#if calendar}
-  <div class="scroll">
-    <!-- Natural-size cells; horizontal scroll for a full year on
-         narrow screens (never stretched to the container). -->
-    <svg viewBox="0 0 {width} {height}" width={width} height={height}
+  <div class="cal" style:max-width="{maxWidth}px">
+    <div class="scroll">
+    <!-- The heatmap scales up to fill the tile width (capped via the .cal
+         wrapper's max-width); on narrow screens min-width keeps cells at their
+         natural size and the row scrolls horizontally. -->
+    <svg viewBox="0 0 {width} {height}" style:min-width="{width}px"
       role="img" aria-label="{calendar.label} calendar heatmap">
       {#each monthLabels as label (label.week + label.text)}
         <text class="month" x={LEFT + label.week * (CELL + GAP)} y="10">
@@ -119,24 +128,33 @@
         </rect>
       {/each}
     </svg>
-  </div>
-  <div class="legend nl-num">
-    <span>{formatValue(range.min, 1)} {calendar.unit}</span>
-    <span class="ramp" aria-hidden="true"></span>
-    <span>{formatValue(range.max, 1)} {calendar.unit}</span>
-    <span class="what">{calendar.label} ({calendar.aggregate})</span>
+    </div>
+    <div class="legend nl-num">
+      <span>{formatValue(range.min, 1)} {calendar.unit}</span>
+      <span class="ramp" aria-hidden="true"></span>
+      <span>{formatValue(range.max, 1)} {calendar.unit}</span>
+      <span class="what">{calendar.label} ({calendar.aggregate})</span>
+    </div>
   </div>
 {:else}
   <p class="missing">No calendar data</p>
 {/if}
 
 <style>
+  /* Caps the heatmap width on desktop and centers it (with its legend) when
+     the data is too narrow to fill the tile. */
+  .cal {
+    margin: 0 auto;
+  }
+
   .scroll {
     overflow-x: auto;
   }
 
   svg {
     display: block;
+    width: 100%;
+    height: auto;
   }
 
   .month,
