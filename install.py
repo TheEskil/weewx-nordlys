@@ -51,6 +51,16 @@ class NordlysInstaller(ExtensionInstaller):
                     ],
                 ),
                 (
+                    # Read by NordlysCardGenerator to render OG cards; not
+                    # served (kept out of the web root / copy_once).
+                    'skins/Nordlys/fonts',
+                    [
+                        'skins/Nordlys/fonts/Inter-Regular.ttf',
+                        'skins/Nordlys/fonts/Inter-Bold.ttf',
+                        'skins/Nordlys/fonts/OFL.txt',
+                    ],
+                ),
+                (
                     'skins/Nordlys/dist',
                     [
                         'skins/Nordlys/dist/nordlys.js',

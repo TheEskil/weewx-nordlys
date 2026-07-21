@@ -23,6 +23,7 @@ import weewx  # noqa: E402
 import weewx.xtypes  # noqa: E402
 from weeutil.weeutil import archiveMonthSpan, archiveWeekSpan  # noqa: E402
 
+import nordlys  # noqa: E402
 from nordlys import (  # noqa: E402
     NordlysSearchList,
     _all_obs,
@@ -30,6 +31,7 @@ from nordlys import (  # noqa: E402
     _base_url,
     _coerce,
     _formats_config,
+    _og_card_name,
     _reports_stats_obs,
     _seo_config,
     _seo_meta,
@@ -214,6 +216,90 @@ class TestSeo(unittest.TestCase):
         seo = {'description': 'a "b" & <c>', 'image': 'og-image.png'}
         meta = _seo_meta('T', 'index.html', seo, '', 'S', 'Loc')
         self.assertEqual(meta['description'], 'a &quot;b&quot; &amp; &lt;c&gt;')
+
+
+class TestOgCards(unittest.TestCase):
+    def test_card_name_derivation(self):
+        self.assertEqual(_og_card_name('month-2026-07.html'), 'og-month-2026-07.png')
+        self.assertEqual(_og_card_name('year-2026.html'), 'og-year-2026.png')
+        self.assertEqual(_og_card_name('week-2026-07-13.html'), 'og-week-2026-07-13.png')
+        # A name without the .html suffix is prefixed as-is.
+        self.assertEqual(_og_card_name('index'), 'og-index.png')
+
+    def test_seo_meta_card_override(self):
+        seo = _seo_config({})
+        relative = _seo_meta('July 2026', 'month-2026-07.html', seo, '', 'S',
+                             'Loc', period_label='July 2026',
+                             card='og-month-2026-07.png')
+        self.assertEqual(relative['image'], 'og-month-2026-07.png')
+        absolute = _seo_meta('July 2026', 'month-2026-07.html', seo,
+                             'https://x.example', 'S', 'Loc',
+                             period_label='July 2026', card='og-month-2026-07.png')
+        self.assertEqual(absolute['image'], 'https://x.example/og-month-2026-07.png')
+        # card=None preserves the site-default image (guards existing callers).
+        default = _seo_meta('Today', 'index.html', seo, '', 'S', 'Loc')
+        self.assertEqual(default['image'], 'og-image.png')
+
+    def test_dynamic_card_default_and_coercion(self):
+        self.assertIs(_seo_config({})['dynamic_card'], True)
+        seo = _seo_config(section(['[seo]', 'dynamic_card = false'])['seo'])
+        self.assertIs(seo['dynamic_card'], False)
+
+    def test_archive_card_selection_gated_on_pillow(self):
+        # Mirrors the SLE wiring: a per-period card is only advertised when
+        # Pillow is present and dynamic_card is on; otherwise fall back.
+        def choose(seo, has_pil):
+            return (_og_card_name('month-2026-07.html')
+                    if has_pil and seo.get('dynamic_card', True) else None)
+
+        on = _seo_config({})
+        self.assertEqual(choose(on, True), 'og-month-2026-07.png')
+        self.assertIsNone(choose(on, False))  # Pillow absent -> fallback
+        off = _seo_config(section(['[seo]', 'dynamic_card = false'])['seo'])
+        self.assertIsNone(choose(off, True))  # opted out -> fallback
+
+    @unittest.skipUnless(nordlys._HAS_PIL, 'Pillow not installed')
+    def test_render_cards_smoke(self):
+        skin_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            'skins', 'Nordlys',
+        )
+        fonts = nordlys._card_fonts(skin_dir)
+        palette = dict(nordlys._CARD_PALETTE)
+        live = nordlys._render_live_card(
+            {
+                'site_name': 'Ålesund Værstasjon',  # non-ASCII
+                'temp': {'value': '12.4', 'unit': '°C'},
+                'stats': [{'label': 'Wind', 'value': '5.2 m/s', 'tone': None}],
+                'updated': 'Updated 21 Jul 2026, 14:30',
+            },
+            fonts, palette,
+        )
+        self.assertEqual(live.size, (1200, 630))
+        self.assertEqual(live.mode, 'RGB')
+        period = nordlys._render_period_card(
+            {
+                'site_name': 'Ålesund Værstasjon',
+                'title': 'July 2026',
+                'stats': [{'label': 'Max temp', 'value': '28.7 °C', 'tone': 'warm'}],
+            },
+            fonts, palette,
+        )
+        self.assertEqual(period.size, (1200, 630))
+
+    @unittest.skipUnless(nordlys._HAS_PIL, 'Pillow not installed')
+    def test_render_live_card_missing_data(self):
+        # No current temperature must still produce a valid card, not raise.
+        skin_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            'skins', 'Nordlys',
+        )
+        fonts = nordlys._card_fonts(skin_dir)
+        card = nordlys._render_live_card(
+            {'site_name': 'Test', 'temp': None, 'stats': [], 'updated': ''},
+            fonts, dict(nordlys._CARD_PALETTE),
+        )
+        self.assertEqual(card.size, (1200, 630))
 
     def test_sitemap_urls(self):
         pages = [{'id': 'today'}, {'id': 'week'}]
