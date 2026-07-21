@@ -3,7 +3,8 @@
 
   let { almanac }: { almanac: AlmanacData } = $props()
 
-  const W = 100
+  // A wide viewBox keeps the full-width arc a short banner (not a tall block).
+  const W = 240
   const H = 46
 
   const path = $derived(almanac.sun_path ?? [])
@@ -93,7 +94,11 @@
         class="time"
         x={xOf(mk.min)}
         y={H + 6}
-        text-anchor={xOf(mk.min) < 10 ? 'start' : xOf(mk.min) > 90 ? 'end' : 'middle'}
+        text-anchor={xOf(mk.min) < W * 0.1
+          ? 'start'
+          : xOf(mk.min) > W * 0.9
+            ? 'end'
+            : 'middle'}
       >{mk.label}</text>
     {/each}
     {#if sun}
@@ -112,6 +117,8 @@
   svg {
     display: block;
     width: 100%;
+    max-height: 320px;
+    margin: 0 auto;
   }
 
   .twilight {
