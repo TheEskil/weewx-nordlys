@@ -305,6 +305,9 @@ export interface TileOptions {
   hot_above?: number
   /** chart kind: line | area | bar | scatter | windrose */
   chart?: string
+  /** chart: overlay this obs as a line on a second (right) axis, e.g. a
+   * rain-rate line over rain bars */
+  overlay?: string
   /** chart timespan: 24h | day | yesterday | week | month | year
    * (default day = calendar today; 24h = trailing window).
    * On a stat tile, a span (yesterday/week/month/year/alltime/archive)
