@@ -241,6 +241,7 @@ is no trend or live update. Without a span it shows current conditions.
     chart = line         # line | area | bar | scatter | windrose | calendar
     span = day           # 24h | day | yesterday | week | month | year
     obs = outTemp, dewpoint     # one or many series
+    overlay = rainRate          # optional 2nd-axis line (e.g. over rain bars)
     colors = accent, accent-3   # optional per-series colors
 ```
 
@@ -250,6 +251,11 @@ is no trend or live update. Without a span it shows current conditions.
 - Series are aggregated per span: raw (`24h`/`day`/`yesterday`), hourly
   avg (week), 3-hourly (month), daily (year). Rain is summed: hourly
   buckets on the day spans, daily beyond - pair it with `chart = bar`.
+- A single-series `line` chart fills its area; charts with several series
+  stay unfilled so they don't obscure each other. `area` forces a fill.
+- `overlay` draws one more obs as a line on a second (right) axis - e.g.
+  a `rainRate` line over `rain` bars. The overlay is bucket-averaged onto
+  the base series' timestamps, so it lines up at every span.
 - `windrose` extras: `bands = 2, 4, 6, 9, 12` (speed band upper bounds,
   report units) and `calm_below = 0.5`.
 - `calendar` extras: `aggregate = avg` (`min`/`max`/`sum` of each day),

@@ -146,6 +146,10 @@
         "chart": {
           "enum": ["line", "area", "bar", "scatter", "windrose", "calendar"]
         },
+        "overlay": {
+          "type": "string",
+          "description": "chart: overlay this obs as a line on a second (right) axis, e.g. rainRate over rain bars."
+        },
         "span": {
           "enum": ["24h", "day", "yesterday", "week", "month", "year", "alltime", "archive"]
         },

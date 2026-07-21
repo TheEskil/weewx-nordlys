@@ -433,7 +433,13 @@ def _collect_chart_needs(pages):
             rose_needs.setdefault(span, options)
         else:
             span_obs = series_needs.setdefault(span, [])
-            for obs in _obs_list(tile):
+            # A chart's own obs, plus an optional overlay obs (e.g. a rain-rate
+            # line over the rain bars) which rides its own axis.
+            obs_names = list(_obs_list(tile))
+            overlay = options.get('overlay')
+            if overlay:
+                obs_names.append(overlay)
+            for obs in obs_names:
                 if obs not in span_obs:
                     span_obs.append(obs)
     return series_needs, rose_needs, calendar_needs

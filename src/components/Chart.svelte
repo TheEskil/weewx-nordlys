@@ -25,6 +25,19 @@
       .map((key) => payload.series?.[span]?.[key])
       .filter((entry): entry is SeriesEntry => entry !== undefined),
   )
+  // A bar chart may overlay a second obs (e.g. rain bars + rain-rate line) on
+  // its own right-hand axis. Present only when the obs has series data.
+  const overlayKey = $derived(
+    typeof tile.options?.overlay === 'string' ? tile.options.overlay : undefined,
+  )
+  const overlay = $derived(
+    overlayKey && !empty.has(overlayKey)
+      ? payload.series?.[span]?.[overlayKey]
+      : undefined,
+  )
+  // A lone line series reads better filled; multiple series stay unfilled so
+  // they don't obscure each other.
+  const fillLine = $derived(kind === 'line' && entries.length === 1)
   const title = $derived(tile.title ?? entries[0]?.label ?? '')
   // All series in one chart share span + aggregation, so the first
   // series' timestamps are the x values for the whole chart.
@@ -71,6 +84,40 @@
     return uPlot.rangeNum(dataMin, dataMax, 0.1, true) as [number, number]
   }
 
+  // The overlay (a rate line) shares the x-axis but keeps its own scale,
+  // anchored at zero so it reads against the bars beneath it.
+  function overlayRange(_u: uPlot, _min: number, dataMax: number): [number, number] {
+    return dataMax == null || dataMax <= 0 ? [0, 1] : [0, dataMax * 1.1]
+  }
+
+  // Bucket-average the overlay onto the base series' timestamps. The base
+  // (rain, summed) is bucketed coarser than the raw rate, so we average each
+  // rate sample into the base bucket (prev, t] it falls in - keeping the line
+  // aligned with the bars at every span.
+  function alignOverlay(
+    baseTimes: number[],
+    pts: [number, number | null][],
+  ): (number | null)[] {
+    const out: (number | null)[] = new Array(baseTimes.length).fill(null)
+    let j = 0
+    for (let i = 0; i < baseTimes.length; i++) {
+      const lo = i === 0 ? -Infinity : baseTimes[i - 1]
+      const hi = baseTimes[i]
+      let sum = 0
+      let n = 0
+      while (j < pts.length && pts[j][0] <= hi) {
+        const [t, v] = pts[j]
+        if (t > lo && v != null) {
+          sum += v
+          n++
+        }
+        j++
+      }
+      out[i] = n ? sum / n : null
+    }
+    return out
+  }
+
   function buildOptions(width: number): uPlot.Options {
     const border = token('border')
     const dim = token('text-dim')
@@ -89,7 +136,7 @@
         stroke: kind === 'bar' ? undefined : color,
         width: kind === 'bar' ? 0 : 1.5,
         fill:
-          kind === 'area'
+          kind === 'area' || fillLine
             ? color + '2e'
             : kind === 'bar'
               ? color + 'cc'
@@ -109,6 +156,20 @@
               : `${v.toFixed(entry.decimals)}${entry.unit ? ` ${entry.unit}` : ''}`,
       }
     })
+    // Overlay series (e.g. rain rate) rides a distinct right-hand y2 scale.
+    if (overlay) {
+      const oColor = seriesColor(entries.length)
+      series.push({
+        label: overlay.label,
+        scale: 'y2',
+        stroke: oColor,
+        width: 1.5,
+        value: (_u: uPlot, v: number | null) =>
+          v == null
+            ? '-'
+            : `${v.toFixed(overlay.decimals)}${overlay.unit ? ` ${overlay.unit}` : ''}`,
+      })
+    }
     return {
       width,
       height: 190,
@@ -121,7 +182,10 @@
         },
         ...series,
       ],
-      scales: { y: { range: isDirection ? [0, 360] : yRange } },
+      scales: {
+        y: { range: isDirection ? [0, 360] : yRange },
+        ...(overlay ? { y2: { range: overlayRange } } : {}),
+      },
       axes: [
         {
           ...axis,
@@ -140,6 +204,18 @@
               size: 40,
             }
           : { ...axis, size: 50, values: tickValues },
+        ...(overlay
+          ? [
+              {
+                ...axis,
+                scale: 'y2',
+                side: 1 as const,
+                grid: { show: false },
+                size: 50,
+                values: tickValues,
+              },
+            ]
+          : []),
       ],
       cursor: { y: false },
       legend: { live: true },
@@ -149,9 +225,11 @@
   $effect(() => {
     if (!container || entries.length === 0) return
 
+    const baseTimes = entries[0].points.map((p) => p[0])
     const data: uPlot.AlignedData = [
-      entries[0].points.map((p) => p[0]),
+      baseTimes,
       ...entries.map((entry) => entry.points.map((p) => p[1])),
+      ...(overlay ? [alignOverlay(baseTimes, overlay.points)] : []),
     ]
 
     let plot: uPlot | undefined
