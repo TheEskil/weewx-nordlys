@@ -143,8 +143,9 @@
     color: var(--nl-cold);
   }
 
-  /* label | value | year, grouped tight and left-packed so the eye doesn't
-     travel; values right-aligned in their column so decimals line up. */
+  /* Desktop: narrow columns, packed tight-left so the year doesn't collide with
+     the next column. Mobile (below): the card is full width, so the label flexes
+     and the value/year sit at the right edge instead of leaving an empty void. */
   .records {
     display: grid;
     grid-template-columns: auto auto auto;
@@ -155,6 +156,12 @@
     padding-top: var(--nl-space-1);
     border-top: 1px solid var(--nl-border);
     font-size: var(--nl-fs-sm);
+  }
+
+  @media (max-width: 560px) {
+    .records {
+      grid-template-columns: 1fr auto auto;
+    }
   }
 
   .label {
@@ -173,6 +180,7 @@
     color: var(--nl-text-dim);
     opacity: 0.7;
     text-align: right;
+    min-width: 2.5em;
   }
 
   .missing {
