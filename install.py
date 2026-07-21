@@ -10,7 +10,7 @@ def loader():
 class NordlysInstaller(ExtensionInstaller):
     def __init__(self):
         super().__init__(
-            version='0.3.0',
+            version='0.4.0',
             name='nordlys',
             description='Nordlys - a clean, minimal, config-first weewx skin',
             author='Eskil Aronsen',
