@@ -94,7 +94,8 @@ and `sitemap.xml` is empty).
     [[seo]]
         base_url = https://weather.example.com/nordlys
         description = Custom description for the whole site
-        image = og-image.png     # social card, relative to the site root
+        image = og-image.png     # static fallback card, relative to the site root
+        dynamic_card = true      # live per-station cards when Pillow is present (default)
         robots = true            # emit robots.txt + sitemap.xml (default)
 ```
 
@@ -103,6 +104,28 @@ and `sitemap.xml` is empty).
 - `robots = false` writes a `Disallow: /` robots.txt and an empty
   sitemap.
 - A JSON-LD `WebSite` + `Place` (schema.org) block ships on every page.
+
+### Dynamic social cards
+
+When [Pillow](https://python-pillow.org/) is installed (an **optional**
+dependency, like `ephem`), Nordlys renders the OG/Twitter card **live per
+station on every report cycle** instead of shipping one generic image:
+
+- **Live pages** (`og-image.png`) show current conditions - station name,
+  temperature, a row of secondary stats, and the "Updated" time.
+- **Archive pages** get a per-period card (`og-month-2026-07.png`,
+  `og-year-2026.png`, `og-week-2026-07-13.png`) summarizing that period's
+  temperature range and rain total.
+
+The card uses the dark "polar night" palette and a bundled Inter font, so
+non-ASCII station names render correctly. The current period is redrawn
+each cycle; completed historical periods are drawn once and cached (delete
+the `og-*.png` files to force a full rebuild after a card redesign). The
+"Updated" stamp is in the weewx server's local time, matching the footer.
+
+Without Pillow - or with `dynamic_card = false` - pages fall back to the
+static `og-image.png` (or the `image` you set). `pip install pillow` to
+enable the dynamic cards.
 
 ## `[[climatological_days]]`
 

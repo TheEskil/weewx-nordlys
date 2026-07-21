@@ -16,6 +16,7 @@ from bisect import bisect_right
 
 import weewx.almanac
 import weewx.cheetahgenerator
+import weewx.reportengine
 import weewx.units
 import weewx.xtypes
 from weeutil.weeutil import (
@@ -30,6 +31,17 @@ from weeutil.weeutil import (
 )
 from weeutil.config import accumulateLeaves as accumulate_leaves
 from weewx.cheetahgenerator import SearchList
+
+# Pillow is an optional dependency (like ephem). When present, the
+# NordlysCardGenerator renders per-station OpenGraph cards each report
+# cycle; when absent, the shipped static og-image.png stands in and the
+# archive pages fall back to it. The single module-level flag keeps the
+# SEO image-name logic and the generator in agreement.
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    _HAS_PIL = True
+except Exception:  # ImportError, or a broken partial install
+    _HAS_PIL = False
 
 log = logging.getLogger(__name__)
 
@@ -273,10 +285,24 @@ _ARCHIVE_PAGE_BY_KIND = {
 
 def _seo_config(section):
     """SEO settings with defaults; section is a ConfigObj section or {}."""
-    seo = {'image': 'og-image.png', 'locale': 'en', 'robots': True}
+    seo = {
+        'image': 'og-image.png',
+        'locale': 'en',
+        'robots': True,
+        'dynamic_card': True,
+    }
     if hasattr(section, 'scalars'):
         seo.update(_section_items(section))
     return seo
+
+
+def _og_card_name(canonical):
+    """The per-period OG card filename for an archive canonical name,
+    e.g. 'month-2026-07.html' -> 'og-month-2026-07.png'. The
+    NordlysCardGenerator derives the same name from the period span, so
+    the HTML and the PNG always agree."""
+    stem = canonical[:-5] if canonical.endswith('.html') else canonical
+    return f'og-{stem}.png'
 
 
 def _base_url(seo, stn_info):
@@ -298,8 +324,9 @@ def _html_attr(value):
 
 
 def _seo_meta(page_title, canonical, seo, base_url, site_name, location,
-              period_label=None):
-    """The per-page SEO/OpenGraph fields for a shell template."""
+              period_label=None, card=None):
+    """The per-page SEO/OpenGraph fields for a shell template. `card`, when
+    given, overrides the OG image with a per-page generated card name."""
     if seo.get('description'):
         description = seo['description']
     elif period_label:
@@ -309,7 +336,7 @@ def _seo_meta(page_title, canonical, seo, base_url, site_name, location,
             f'{page_title} - live weather for {location}: current '
             f'conditions, charts and records.'
         )
-    image = seo.get('image', 'og-image.png')
+    image = card or seo.get('image', 'og-image.png')
     return {
         'description': _html_attr(description),
         'title': _html_attr(f'{page_title} · {location}'),
@@ -955,9 +982,17 @@ class NordlysSearchList(SearchList):
                 _ARCHIVE_PAGE_BY_KIND[period_kind],
                 time.localtime(timespan.start),
             )
+            # Point the archive card at its per-period PNG only when the
+            # generator will actually write it; otherwise fall back to the
+            # site default og-image.png.
+            card = (
+                _og_card_name(canonical)
+                if _HAS_PIL and seo.get('dynamic_card', True)
+                else None
+            )
             seo_meta = _seo_meta(
                 label, canonical, seo, base_url, site_name,
-                stn_info.location, period_label=label,
+                stn_info.location, period_label=label, card=card,
             )
         else:
             seo_meta = _seo_meta(
@@ -2161,3 +2196,304 @@ class NordlysPageGenerator(weewx.cheetahgenerator.CheetahGenerator):
             with open(os.path.join(dest_dir, filename), 'wb') as handle:
                 handle.write(html)
         self.teardown()
+
+
+###############################################################################
+# OpenGraph social cards (optional, requires Pillow)
+#
+# The rendering is split into pure module-level helpers (testable without a
+# weewx generator) and the NordlysCardGenerator that gathers station data
+# and drives them.
+###############################################################################
+
+_CARD_W, _CARD_H = 1200, 630
+_CARD_MARGIN = 64
+
+# The card always uses the dark "polar night" hero palette (a social card
+# has no light/dark context). Values are copied verbatim from the dark
+# :root in src/theme/tokens.css.
+_CARD_PALETTE = {
+    'bg': '#0b1220',
+    'text': '#e8eef7',
+    'dim': '#8fa3bf',
+    'accent': '#3ddc97',   # aurora green
+    'accent2': '#4cc9f0',  # ice teal
+    'cold': '#4cc9f0',
+    'warm': '#f0b860',
+}
+
+
+def _load_font(skin_dir, size, bold=False):
+    """A bundled Inter face at `size`, or Pillow's default as a
+    don't-crash fallback (ASCII-only, fixed size)."""
+    name = 'Inter-Bold.ttf' if bold else 'Inter-Regular.ttf'
+    try:
+        return ImageFont.truetype(os.path.join(skin_dir, 'fonts', name), size)
+    except Exception:
+        return ImageFont.load_default()
+
+
+def _card_fonts(skin_dir):
+    return {
+        'brand': _load_font(skin_dir, 44, bold=True),
+        'hero': _load_font(skin_dir, 150, bold=True),
+        'unit': _load_font(skin_dir, 56),
+        'label': _load_font(skin_dir, 27),
+        'value': _load_font(skin_dir, 42, bold=True),
+        'title': _load_font(skin_dir, 76, bold=True),
+        'foot': _load_font(skin_dir, 28),
+    }
+
+
+def _hex_rgb(value):
+    value = value.lstrip('#')
+    return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _fit_text(draw, text, font, max_width):
+    """`text`, ellipsized to fit within `max_width` pixels."""
+    if draw.textlength(text, font=font) <= max_width:
+        return text
+    ellipsis = '…'
+    while text and draw.textlength(text + ellipsis, font=font) > max_width:
+        text = text[:-1]
+    return (text + ellipsis) if text else ellipsis
+
+
+def _card_base(palette):
+    """A blank card with the aurora top rule; returns (image, draw)."""
+    img = Image.new('RGB', (_CARD_W, _CARD_H), palette['bg'])
+    draw = ImageDraw.Draw(img)
+    left, right = _hex_rgb(palette['accent']), _hex_rgb(palette['accent2'])
+    for x in range(_CARD_W):
+        t = x / (_CARD_W - 1)
+        color = tuple(round(left[i] + (right[i] - left[i]) * t) for i in range(3))
+        draw.line([(x, 0), (x, 7)], fill=color)
+    return img, draw
+
+
+def _draw_stat(draw, stat, fonts, palette, x, y):
+    """A label-over-value stat cell at (x, y)."""
+    draw.text((x, y), stat['label'].upper(), font=fonts['label'],
+              fill=palette['dim'])
+    color = palette.get(stat.get('tone'), palette['text'])
+    draw.text((x, y + 34), stat['value'], font=fonts['value'], fill=color)
+
+
+def _render_live_card(data, fonts, palette):
+    """Live current-conditions card (1200x630, opaque)."""
+    img, draw = _card_base(palette)
+    m = _CARD_MARGIN
+    inner = _CARD_W - 2 * m
+    draw.text((m, m), _fit_text(draw, data['site_name'], fonts['brand'], inner),
+              font=fonts['brand'], fill=palette['text'])
+
+    temp = data.get('temp')
+    if temp:
+        hero_y = 158
+        draw.text((m, hero_y), temp['value'], font=fonts['hero'],
+                  fill=palette['text'])
+        num_box = draw.textbbox((m, hero_y), temp['value'], font=fonts['hero'])
+        if temp.get('unit'):
+            unit_box = draw.textbbox((0, 0), temp['unit'], font=fonts['unit'])
+            unit_y = num_box[3] - (unit_box[3] - unit_box[1]) - unit_box[1]
+            draw.text((num_box[2] + 18, unit_y), temp['unit'],
+                      font=fonts['unit'], fill=palette['dim'])
+    else:
+        draw.text((m, 210), 'No current data', font=fonts['title'],
+                  fill=palette['dim'])
+
+    stats = (data.get('stats') or [])[:4]
+    if stats:
+        col_w = inner / len(stats)
+        for i, stat in enumerate(stats):
+            _draw_stat(draw, stat, fonts, palette, m + i * col_w, 428)
+
+    if data.get('updated'):
+        draw.text((m, _CARD_H - m - 30), data['updated'], font=fonts['foot'],
+                  fill=palette['dim'])
+    return img
+
+
+def _render_period_card(data, fonts, palette):
+    """Archive period-summary card (1200x630, opaque)."""
+    img, draw = _card_base(palette)
+    m = _CARD_MARGIN
+    inner = _CARD_W - 2 * m
+    draw.text((m, m), _fit_text(draw, data['site_name'], fonts['brand'], inner),
+              font=fonts['brand'], fill=palette['text'])
+    draw.text((m, 150), _fit_text(draw, data['title'], fonts['title'], inner),
+              font=fonts['title'], fill=palette['text'])
+
+    stats = (data.get('stats') or [])[:4]
+    cell_w, cell_h = inner / 2, 118
+    for i, stat in enumerate(stats):
+        x = m + (i % 2) * cell_w
+        y = 296 + (i // 2) * cell_h
+        _draw_stat(draw, stat, fonts, palette, x, y)
+
+    draw.text((m, _CARD_H - m - 30), 'Weather archive', font=fonts['foot'],
+              fill=palette['dim'])
+    return img
+
+
+class NordlysCardGenerator(weewx.reportengine.ReportGenerator):
+    """Renders per-station OpenGraph social cards each report cycle.
+
+    The live card (og-image.png) shows current conditions; per-period
+    cards (og-<stem>.png) summarize each archive week/month/year. Pillow
+    is an optional dependency: without it this generator is a no-op and
+    the shipped static og-image.png stands. It MUST run after
+    CopyGenerator so the live card overwrites the copied static one.
+    """
+
+    # Secondary observations on the live card, in order. Missing ones are
+    # skipped. `rain` is the running daily total, not an instantaneous value.
+    _LIVE_SECONDARY = (
+        ('windSpeed', 'Wind', None),
+        ('outHumidity', 'Humidity', None),
+        ('barometer', 'Pressure', None),
+        ('rain', 'Rain today', 'accent2'),
+    )
+
+    def run(self):
+        if not _HAS_PIL:
+            log.debug('Nordlys: Pillow not installed; skipping OG cards')
+            return
+        nordlys = self.skin_dict.get('Nordlys', {})
+        seo = _seo_config(nordlys.get('seo', {}))
+        if not seo.get('dynamic_card', True):
+            log.debug('Nordlys: dynamic_card disabled; skipping OG cards')
+            return
+
+        html_root = os.path.join(
+            self.config_dict['WEEWX_ROOT'],
+            self.skin_dict.get('HTML_ROOT',
+                               self.config_dict['StdReport']['HTML_ROOT']),
+        )
+        skin_dir = os.path.join(
+            self.config_dict['WEEWX_ROOT'],
+            self.skin_dict['SKIN_ROOT'],
+            self.skin_dict['skin'],
+        )
+        binding = self.skin_dict.get('data_binding', 'wx_binding')
+        try:
+            db = self.db_binder.get_manager(binding)
+            last_ts = db.lastGoodStamp()
+        except Exception as exc:
+            log.error('Nordlys: OG cards: no database (%s)', exc)
+            return
+        if not last_ts:
+            return
+
+        self.formatter = weewx.units.Formatter.fromSkinDict(self.skin_dict)
+        self.converter = weewx.units.Converter.fromSkinDict(self.skin_dict)
+        self._formats = _formats_config(nordlys.get('formats', {}))
+        self._site_name = nordlys.get('site_name', self.stn_info.location)
+        fonts = _card_fonts(skin_dir)
+        palette = dict(_CARD_PALETTE)
+        try:
+            os.makedirs(html_root, exist_ok=True)
+        except OSError:
+            pass
+
+        try:
+            data = self._live_card_data(db, last_ts)
+            self._save_card(_render_live_card(data, fonts, palette),
+                            os.path.join(html_root, 'og-image.png'))
+        except Exception as exc:
+            log.error('Nordlys: live OG card failed: %s', exc)
+
+        week_start = getattr(self.stn_info, 'week_start', 6)
+        self._period_cards(db, last_ts, week_start, html_root, fonts, palette)
+
+    def _period_cards(self, db, last_ts, week_start, html_root, fonts, palette):
+        first_ts = db.firstGoodStamp()
+        if not first_ts:
+            return
+        spans = [('week', s) for s in _gen_week_spans(first_ts, last_ts, week_start)]
+        spans += [('month', s) for s in genMonthSpans(first_ts, last_ts)]
+        spans += [('year', s) for s in genYearSpans(first_ts, last_ts)]
+        for kind, span in spans:
+            stem = time.strftime(_ARCHIVE_PAGE_BY_KIND[kind][:-len('.html')],
+                                 time.localtime(span.start))
+            target = os.path.join(html_root, f'og-{stem}.png')
+            # The current, still-accumulating period refreshes every cycle;
+            # completed historical periods are drawn once and left alone.
+            is_current = span.start <= last_ts < span.stop
+            if not is_current and os.path.exists(target):
+                continue
+            try:
+                data = self._period_card_data(kind, span, db, week_start)
+                self._save_card(_render_period_card(data, fonts, palette), target)
+            except Exception as exc:
+                log.error('Nordlys: OG card %s failed: %s', os.path.basename(target), exc)
+
+    def _live_card_data(self, db, last_ts):
+        record = db.getRecord(last_ts) or {}
+        day_span = archiveDaySpan(last_ts)
+        stats = []
+        for obs, label, tone in self._LIVE_SECONDARY:
+            value = self._formatted(self._current_vt(record, obs, db, day_span))
+            if value:
+                stats.append({'label': label, 'value': value, 'tone': tone})
+        return {
+            'site_name': self._site_name,
+            'temp': self._formatted(self._current_vt(record, 'outTemp', db, day_span),
+                                    split_unit=True),
+            'stats': stats,
+            'updated': 'Updated ' + time.strftime(
+                self._formats['datetime'], time.localtime(last_ts)),
+        }
+
+    def _period_card_data(self, kind, span, db, week_start):
+        _, label = _period_meta(kind, span.start, week_start)
+        stats = []
+        for agg, lbl, tone in (('min', 'Min temp', 'cold'),
+                               ('max', 'Max temp', 'warm'),
+                               ('avg', 'Avg temp', None)):
+            value = self._formatted(self._safe_agg('outTemp', span, agg, db))
+            if value:
+                stats.append({'label': lbl, 'value': value, 'tone': tone})
+        rain = self._formatted(self._safe_agg('rain', span, 'sum', db))
+        if rain:
+            stats.append({'label': 'Rain total', 'value': rain, 'tone': 'accent2'})
+        return {'site_name': self._site_name, 'title': label, 'stats': stats}
+
+    def _current_vt(self, record, obs, db, day_span):
+        if obs in _DAY_SUM_OBS:
+            return self._safe_agg(obs, day_span, 'sum', db)
+        if obs not in record:
+            return None
+        try:
+            return weewx.units.as_value_tuple(record, obs)
+        except Exception:
+            return None
+
+    def _safe_agg(self, obs, span, agg, db):
+        try:
+            return weewx.xtypes.get_aggregate(obs, span, agg, db)
+        except Exception:
+            return None
+
+    def _formatted(self, value_tuple, split_unit=False):
+        """A ValueTuple formatted per skin units. Returns
+        {'value', 'unit'} when split_unit else 'value unit', or None."""
+        if value_tuple is None:
+            return None
+        converted = self.converter.convert(value_tuple)
+        if converted[0] is None:
+            return None
+        try:
+            number = (self.formatter.get_format_string(converted[1]) % converted[0]).strip()
+        except (TypeError, ValueError):
+            number = str(converted[0])
+        unit = (self.formatter.get_label_string(converted[1], plural=False) or '').strip()
+        if split_unit:
+            return {'value': number, 'unit': unit}
+        return f'{number} {unit}'.strip()
+
+    def _save_card(self, img, path):
+        tmp = path + '.tmp'
+        img.save(tmp, format='PNG', optimize=True)
+        os.replace(tmp, path)
