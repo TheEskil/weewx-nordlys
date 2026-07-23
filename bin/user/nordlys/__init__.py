@@ -206,6 +206,14 @@ def _section_items(section):
     return {key: _coerce(section[key]) for key in section.scalars}
 
 
+def _update_interval(config_dict):
+    """Archive interval (s) for the front-end refresh timer; default 300."""
+    try:
+        return int(config_dict['StdArchive']['archive_interval'])
+    except (KeyError, TypeError, ValueError):
+        return 300
+
+
 def _tile_config(obs_key, section):
     tile_type = section.get('type', 'stat')
     tile = {'type': tile_type}
@@ -796,6 +804,8 @@ class NordlysSearchList(SearchList):
         site_name = nordlys_dict.get('site_name', stn_info.location)
 
         config = {'pages': [], 'formats': self._formats, 'seo': seo}
+        # Timed soft auto-refresh of open pages; opt out with auto_refresh = false.
+        config['auto_refresh'] = _coerce(nordlys_dict.get('auto_refresh', True))
         if 'theme' in getattr(nordlys_dict, 'sections', []):
             config['theme'] = _theme_config(nordlys_dict['theme'])
         if 'pages' in getattr(nordlys_dict, 'sections', []):
@@ -951,6 +961,7 @@ class NordlysSearchList(SearchList):
                 'version': CONTRACT_VERSION,
                 'skinVersion': skin_dict.get('SKIN_VERSION'),
                 'generatedAt': int(time.time()),
+                'updateInterval': _update_interval(self.generator.config_dict),
                 'station': {
                     'name': nordlys_dict.get('site_name', stn_info.location),
                     'location': stn_info.location,

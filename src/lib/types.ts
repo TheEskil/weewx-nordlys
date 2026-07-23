@@ -214,6 +214,8 @@ export interface Meta {
   /** skin.conf SKIN_VERSION, surfaced in the footer for bug reports */
   skinVersion?: string
   generatedAt: number
+  /** weewx archive_interval (seconds); drives the auto-refresh timer */
+  updateInterval?: number
   station: Station
 }
 
@@ -229,6 +231,9 @@ export interface SkinConfig {
   theme?: ThemeConfig
   pages: PageConfig[]
   live?: LiveConfig
+  /** timed soft refresh of open pages; opt out with skin.conf
+   * auto_refresh = false (default true) */
+  auto_refresh?: boolean
   /** strftime date/time formats shared with the front-end */
   formats?: {
     time: string

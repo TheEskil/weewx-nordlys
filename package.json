@@ -20,6 +20,7 @@
     "@tsconfig/svelte": "^5.0.4",
     "aedes": "^1.1.1",
     "ajv": "^8.20.0",
+    "happy-dom": "^20.11.1",
     "svelte": "^5.16.0",
     "svelte-check": "^4.1.1",
     "typescript": "^5.7.2",

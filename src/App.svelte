@@ -1,11 +1,13 @@
 <script lang="ts">
   import type { NordlysPayload } from './lib/types'
   import { startLive, type LiveStatus } from './lib/live'
+  import { startAutoRefresh } from './lib/refresh'
   import { formatsOf, strftime } from './lib/strftime'
   import Header from './components/Header.svelte'
   import Page from './components/Page.svelte'
 
-  let { payload }: { payload: NordlysPayload } = $props()
+  let { payload, dev = false }: { payload: NordlysPayload; dev?: boolean } =
+    $props()
 
   // The payload prop is set once at mount; deep-reactive state lets
   // live updates flow into tiles.
@@ -110,6 +112,45 @@
         obs.min = { value: rounded, time: now }
       }
     }
+  }
+
+  // Timed soft refresh: pull the freshly generated payload each report cycle
+  // so an open tab stays current. The effect reads only values that are
+  // stable across a refresh (auto_refresh, updateInterval, the archive gate
+  // via the never-mutated `payload` prop); generatedAt is read lazily inside
+  // the closure so a refresh does not tear this effect down and restart it.
+  $effect(() => {
+    // Off in the dev-fixture harness (no embedded payload to re-fetch);
+    // ?refresh=1 force-enables it for the e2e test.
+    if (dev && !new URLSearchParams(location.search).has('refresh')) return
+    // Archive drill-down pages are historical - nothing to refresh.
+    if (payload.period) return
+    if (data.config.auto_refresh === false) return
+    return startAutoRefresh({
+      intervalSeconds: data.meta.updateInterval ?? 300,
+      getGeneratedAt: () => data.meta.generatedAt,
+      onRefresh: applyFullRefresh,
+    })
+  })
+
+  function applyFullRefresh(fresh: NordlysPayload) {
+    // Update generatedAt in place (keeps data.meta identity so the refresh
+    // effect above doesn't restart); swap the dynamic data slices, which the
+    // charts/tiles re-render from. config/meta/theme are intentionally NOT
+    // hot-swapped - those changes need a reload.
+    data.meta.generatedAt = fresh.meta.generatedAt
+    data.current = fresh.current
+    data.emptyObs = fresh.emptyObs
+    data.series = fresh.series
+    data.windrose = fresh.windrose
+    data.stats = fresh.stats
+    data.ranges = fresh.ranges
+    data.climatology = fresh.climatology
+    data.almanac = fresh.almanac
+    data.forecast = fresh.forecast
+    data.history = fresh.history
+    data.period = fresh.period
+    data.archives = fresh.archives
   }
 </script>
 

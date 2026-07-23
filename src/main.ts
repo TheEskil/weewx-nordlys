@@ -3,6 +3,7 @@ import './theme/base.css'
 import { mount } from 'svelte'
 import App from './App.svelte'
 import { applyTheme } from './lib/theme'
+import { parseEmbeddedPayload } from './lib/payload'
 import type { NordlysPayload } from './lib/types'
 
 /*
@@ -29,23 +30,25 @@ async function loadPayload(): Promise<NordlysPayload> {
     if (live) payload.config.live = { broker: live }
     return payload
   }
-  return JSON.parse(el.textContent ?? '') as NordlysPayload
+  return parseEmbeddedPayload(document)
 }
 
 const target = document.getElementById('nordlys-app')
 if (!target) throw new Error('Nordlys: missing #nordlys-app mount point')
 
+// The dev harness marks itself with data-src on the payload element; in
+// production the payload is embedded. Auto-refresh and the PWA service
+// worker are production-only.
+const isDev = !!document
+  .getElementById('nordlys-data')
+  ?.hasAttribute('data-src')
+
 loadPayload().then((payload) => {
   applyTheme(payload.config.theme)
   target.replaceChildren() // drop the server-rendered fallback
-  mount(App, { target, props: { payload } })
+  mount(App, { target, props: { payload, dev: isDev } })
 })
 
-// PWA offline support - production only (the dev harness marks itself
-// with data-src on the payload element).
-const isDev = document
-  .getElementById('nordlys-data')
-  ?.hasAttribute('data-src')
 if (!isDev && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {
     /* offline support is best-effort */

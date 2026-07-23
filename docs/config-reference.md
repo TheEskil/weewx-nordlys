@@ -30,6 +30,7 @@ A machine-readable schema of the resolved config lives in
 [Nordlys]
     site_name = Aldersundet weather   # display name; default: station location
     user_css = user.css               # optional extra stylesheet, see theming guide
+    auto_refresh = false              # opt out of timed auto-refresh (default true)
 ```
 
 ## `[[theme]]`
@@ -424,3 +425,18 @@ cycle - or immediately with:
 ```sh
 weectl report run --config /path/to/weewx.conf
 ```
+
+### Auto-refresh
+
+Open pages refresh themselves shortly after each report cycle, timed to
+weewx's `[StdArchive] archive_interval`, so a tab left open stays current
+without a manual reload. The page re-fetches its own freshly generated
+HTML and swaps the new numbers, charts, and records in place - scroll
+position, the active page, the theme, and any live MQTT connection are all
+preserved. Refresh is paused while the tab is hidden and catches up when it
+becomes visible again.
+
+Because only data is swapped, **config, layout, and theme changes still
+need a reload** (or they appear on the visitor's next full page load).
+Auto-refresh is on by default; set `auto_refresh = false` under `[Nordlys]`
+to disable it.
