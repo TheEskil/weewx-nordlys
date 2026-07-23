@@ -1,6 +1,6 @@
 {
   "name": "weewx-nordlys",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Nordlys - a clean, minimal, config-first weewx skin",
   "type": "module",
