@@ -21,6 +21,7 @@ and the front-end fetches it.
   "meta": {
     "version": 1,            // contract version; bump on breaking changes
     "generatedAt": 1784457000, // unix seconds, report generation time
+    "updateInterval": 300,  // archive_interval (s); drives auto-refresh timing
     "station": {
       "name": "…",           // [Nordlys] site_name, or station location
       "location": "…",       // weewx station location
@@ -31,6 +32,7 @@ and the front-end fetches it.
   },
 
   "config": {                // resolved [Nordlys] section of skin.conf
+    "auto_refresh": true,    // timed soft refresh of open pages (opt-out)
     "theme": {
       "mode": "auto",        // auto | dark | light
       "dark":  { "accent": "#3ddc97", … },  // --nl-* overrides, no prefix

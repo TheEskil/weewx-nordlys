@@ -36,6 +36,7 @@ from nordlys import (  # noqa: E402
     _seo_config,
     _seo_meta,
     _sitemap_urls,
+    _update_interval,
     _detect_period,
     _gen_week_spans,
     _period_meta,
@@ -69,6 +70,24 @@ class TestCoerce(unittest.TestCase):
 
     def test_list(self):
         self.assertEqual(_coerce(['1', '2.5', 'x']), [1, 2.5, 'x'])
+
+    def test_auto_refresh_toggle(self):
+        # config['auto_refresh'] rides on _coerce: string false -> bool,
+        # missing -> the Python True default passes through unchanged.
+        self.assertIs(_coerce('false'), False)
+        self.assertIs(_coerce(True), True)
+
+
+class TestUpdateInterval(unittest.TestCase):
+    def test_reads_archive_interval(self):
+        cfg = section(['[StdArchive]', 'archive_interval = 600'])
+        self.assertEqual(_update_interval(cfg), 600)
+
+    def test_defaults_when_missing(self):
+        self.assertEqual(_update_interval(section([])), 300)
+        self.assertEqual(
+            _update_interval(section(['[StdArchive]', 'x = 1'])), 300
+        )
 
 
 class TestTileConfig(unittest.TestCase):

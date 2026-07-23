@@ -37,6 +37,13 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (url.origin !== location.origin) return
 
+  // Auto-refresh re-fetch (?_nl=<ts>): go straight to the network and never
+  // cache it, so the open page always gets the freshly generated payload.
+  if (url.searchParams.has('_nl')) {
+    event.respondWith(fetch(request))
+    return
+  }
+
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
